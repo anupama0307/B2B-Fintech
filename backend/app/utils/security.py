@@ -13,7 +13,10 @@ from app.models. user import User
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-def hash_password(password:  str) -> str:
+def hash_password(password: str) -> str:
+    # Truncate password to meet bcrypt limits (72 characters)
+    if len(password) > 72:
+        password = password[:72]
     return pwd_context.hash(password)
 
 def verify_password(plain:  str, hashed:  str) -> bool:

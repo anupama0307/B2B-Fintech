@@ -4,7 +4,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    DATABASE_URL:  str = "sqlite: ///./riskon. db"
+    DATABASE_URL:  str = "sqlite:///./riskon. db"
     ADMIN_EMAIL: str = "admin@riskon.com"
     ADMIN_PASSWORD: str = "admin123"
     
@@ -12,3 +12,4 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 settings = Settings()
+assert len(settings.ADMIN_PASSWORD) <= 72, "Admin password must be ≤72 characters"
