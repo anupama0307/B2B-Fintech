@@ -17,7 +17,7 @@ from app.routers import auth, loans, upload, admin, zudu, user
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
-from app.routers import auth, loans, upload, admin, zudu, simulator
+from app.routers import auth, loans, upload, admin, zudu, simulator, analytics
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -51,6 +51,7 @@ app.include_router(admin.router)
 app.include_router(agent.router)
 app.include_router(zudu.router)
 app.include_router(user.router)
+app.include_router(analytics.router)
 
 
 @app.get("/", tags=["Root"])

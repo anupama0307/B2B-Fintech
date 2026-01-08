@@ -114,11 +114,10 @@ export default function UserDashboard() {
               {/* Score Bar */}
               <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${
-                    data?.customer_score >= 750 ? 'bg-green-500' : 
-                    data?.customer_score >= 650 ? 'bg-blue-500' :
-                    data?.customer_score >= 550 ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
+                  className={`h-full ${data?.customer_score >= 750 ? 'bg-green-500' :
+                    ta?.customer_score >= 650 ? 'bg-blue-500' :
+                      da?.customer_score >= 550 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}
                   style={{ width: `${((data?.customer_score || 0) / 900) * 100}%` }}
                 />
               </div>
@@ -136,7 +135,7 @@ export default function UserDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-sm text-gray-500 mb-2">Monthly Expenses</h3>
               <p className="text-2xl font-bold text-red-600">
-                ₹{data?.monthly_expenses?. toLocaleString('en-IN') || 0}
+                ₹{data?.monthly_expenses?.toLocaleString('en-IN') || 0}
               </p>
               {data?.expense_mismatch && (
                 <p className="text-xs text-red-500 mt-1">
@@ -149,13 +148,13 @@ export default function UserDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-sm text-gray-500 mb-2">Total Assets</h3>
               <p className="text-2xl font-bold text-blue-600">
-                ₹{data?.total_assets?. toLocaleString('en-IN') || 0}
+                ₹{data?.total_assets?.toLocaleString('en-IN') || 0}
               </p>
             </div>
           </div>
 
           {/* Loan Summary Alert */}
-          {data?.loan_summary?. pending > 0 && (
+          {data?.loan_summary?.pending > 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
               <p className="text-yellow-800">
                 📋 You have <strong>{data.loan_summary.pending}</strong> pending loan application(s).{' '}
@@ -169,7 +168,7 @@ export default function UserDashboard() {
             {/* Spending Breakdown */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">💰 Spending Breakdown</h3>
-              {spendingData. length > 0 ?  (
+              {spendingData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
@@ -196,7 +195,7 @@ export default function UserDashboard() {
               <div className="flex flex-wrap justify-center gap-3 mt-4">
                 {spendingData.map((item, index) => (
                   <div key={index} className="flex items-center text-sm">
-                    <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor:  item.color }} />
+                    <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: item.color }} />
                     <span className="capitalize">{item.name}</span>
                   </div>
                 ))}
@@ -238,7 +237,7 @@ export default function UserDashboard() {
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <p className="text-sm text-gray-500">Stocks</p>
                 <p className="text-lg font-bold text-purple-600">
-                  ₹{data?.investments?.stocks?. toLocaleString('en-IN') || 0}
+                  ₹{data?.investments?.stocks?.toLocaleString('en-IN') || 0}
                 </p>
               </div>
               <div className="text-center p-4 bg-yellow-50 rounded-lg">
@@ -250,7 +249,7 @@ export default function UserDashboard() {
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-500">Other</p>
                 <p className="text-lg font-bold text-gray-600">
-                  ₹{data?.investments?.other?. toLocaleString('en-IN') || 0}
+                  ₹{data?.investments?.other?.toLocaleString('en-IN') || 0}
                 </p>
               </div>
             </div>

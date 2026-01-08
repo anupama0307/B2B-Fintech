@@ -7,7 +7,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -27,7 +27,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const user = await login(email, password);
       if (user.role === 'admin') {
@@ -68,7 +68,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input

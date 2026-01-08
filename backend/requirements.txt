@@ -10,3 +10,4 @@ slowapi
 Pillow
 pytest
 httpx
+reportlab

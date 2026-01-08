@@ -315,9 +315,115 @@ Respond in a conversational manner. If there's a clear next action the user shou
             "suggested_action": suggested_action
         }
 
+
     except Exception as e:
         return {
             "response": f"Hello {user_name}, I apologize but I'm having trouble processing your request right now. Please try again in a moment.",
             "suggested_action": "Try again or contact support"
         }
 
+
+async def generate_financial_advice(summary: str) -> str:
+    """
+    Generate punchy, friendly financial advice based on a spending summary.
+    """
+    if not gemini_model:
+        return "Keep an eye on your spending to improve your financial health!"
+
+    try:
+        prompt = f"""
+        Analyze this user's spending summary: {summary}
+        
+        Give one short, punchy, friendly piece of financial advice (max 2 sentences).
+        Address the user directly. Be encouraging.
+        """
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip()
+
+    except Exception as e:
+        print(f"Error generating advice: {e}")
+        return "Keep an eye on your spending to improve your financial health!"
+
+
+async def extract_id_details(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
+    """
+    Extract details from an ID card image using Gemini Vision AI.
+    
+    Supports: PAN Card, Aadhaar Card, Driver's License, Passport, Voter ID.
+    
+    Args:
+        image_bytes: Raw image bytes of the ID card
+        mime_type: MIME type of the image (default: image/jpeg)
+        
+    Returns:
+        Dictionary with extracted fields:
+        - full_name: Name on the ID card
+        - date_of_birth: DOB in YYYY-MM-DD format
+        - id_number: ID/document number
+        - document_type: Type of ID (PAN, Aadhaar, Driver's License, etc.)
+        - confidence: Extraction confidence (high/medium/low)
+        
+    Raises:
+        ValueError: If extraction fails or image is unreadable
+    """
+    if not gemini_model:
+        raise ValueError("Gemini AI model not initialized. Check GEMINI_API_KEY.")
+    
+    try:
+        # Prepare image for Gemini Vision
+        image_part = {
+            "mime_type": mime_type,
+            "data": image_bytes
+        }
+        
+        # Structured prompt for ID extraction
+        prompt = """Analyze this ID card image. Extract the following details in strict JSON format:
+{
+    "full_name": "Full name as printed on the ID",
+    "date_of_birth": "YYYY-MM-DD",
+    "id_number": "ID/Document number",
+    "document_type": "PAN Card/Aadhaar Card/Driver's License/Passport/Voter ID/Other",
+    "confidence": "high/medium/low"
+}
+
+Rules:
+- Extract the name EXACTLY as printed on the ID card.
+- For date_of_birth, convert to YYYY-MM-DD format. If only year is visible, use YYYY-01-01.
+- For id_number, extract the primary identification number (PAN number, Aadhaar number, DL number, etc.)
+- If a field is not visible or unreadable, use null.
+- Set confidence based on image clarity: high (clearly readable), medium (partially readable), low (barely visible).
+- Return ONLY the JSON object, no additional text."""
+        
+        # Generate response using Gemini Vision
+        response = gemini_model.generate_content([prompt, image_part])
+        
+        if not response or not response.text:
+            raise ValueError("Empty response from Gemini Vision")
+        
+        response_text = response.text.strip()
+        
+        # Clean up response if wrapped in code blocks
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        
+        import json
+        parsed_data = json.loads(response_text)
+        
+        # Validate and structure the response
+        result = {
+            "full_name": parsed_data.get("full_name"),
+            "date_of_birth": parsed_data.get("date_of_birth"),
+            "id_number": parsed_data.get("id_number"),
+            "document_type": parsed_data.get("document_type", "Unknown"),
+            "confidence": parsed_data.get("confidence", "medium")
+        }
+        
+        return result
+        
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse Gemini response: {e}")
+    except Exception as e:
+        raise ValueError(f"Error extracting ID details: {e}")
