@@ -1,16 +1,22 @@
 """
 Authentication router for RISKOFF API.
 Handles user signup, login, and session management.
+With rate limiting for security.
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.config import supabase_client
 from app.schemas import UserSignup, UserLogin
 from app.utils.security import get_current_user, CurrentUser
+
+# Rate limiter for auth endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/auth",
@@ -24,13 +30,15 @@ class AuthResponse(BaseModel):
     user_id: str
     email: str
     full_name: Optional[str] = None
+    role: str = "user"
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(user: UserSignup) -> AuthResponse:
+@limiter.limit("5/minute")  # SECURITY: Limit signup attempts
+async def signup(request: Request, user: UserSignup) -> AuthResponse:
     """
     Register a new user with Supabase Auth.
     
@@ -115,7 +123,8 @@ async def signup(user: UserSignup) -> AuthResponse:
 
 
 @router.post("/login")
-async def login(user: UserLogin) -> AuthResponse:
+@limiter.limit("10/minute")  # SECURITY: Limit login attempts to prevent brute force
+async def login(request: Request, user: UserLogin) -> AuthResponse:
     """
     Authenticate user and return session tokens.
     
@@ -144,12 +153,25 @@ async def login(user: UserLogin) -> AuthResponse:
             )
         
         user_metadata = auth_response.user.user_metadata or {}
+        
+        # Fetch role from profiles table
+        user_role = "user"
+        try:
+            profile_response = supabase_client.table("profiles").select("role").eq(
+                "id", auth_response.user.id
+            ).execute()
+            if profile_response.data and len(profile_response.data) > 0:
+                user_role = profile_response.data[0].get("role", "user")
+        except Exception:
+            # Default to 'user' if profile lookup fails
+            pass
 
         return AuthResponse(
             message="Login successful",
             user_id=auth_response.user.id,
             email=auth_response.user.email,
             full_name=user_metadata.get("full_name"),
+            role=user_role,
             access_token=auth_response.session.access_token,
             refresh_token=auth_response.session.refresh_token
         )

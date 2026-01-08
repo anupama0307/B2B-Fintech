@@ -274,8 +274,8 @@ async def transcribe_audio_file(
     
     Requires authentication.
     """
-    # Allowed audio MIME types
-    allowed_types = [
+    # Allowed audio MIME types (base types, will match with codec suffixes too)
+    allowed_base_types = [
         "audio/mpeg",
         "audio/mp3",
         "audio/wav",
@@ -288,10 +288,14 @@ async def transcribe_audio_file(
         "audio/webm"
     ]
     
-    if file.content_type not in allowed_types:
+    # Extract base MIME type (handles 'audio/webm;codecs=opus' -> 'audio/webm')
+    content_type = file.content_type or "audio/webm"
+    base_content_type = content_type.split(';')[0].strip()
+    
+    if base_content_type not in allowed_base_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type '{file.content_type}'. Allowed: MP3, WAV, M4A, OGG, WebM"
+            detail=f"Invalid file type '{content_type}'. Allowed: MP3, WAV, M4A, OGG, WebM"
         )
     
     # Validate file size (max 25MB for audio)
@@ -311,8 +315,8 @@ async def transcribe_audio_file(
         )
     
     try:
-        # Transcribe audio using Gemini
-        transcription = await transcribe_audio(file_content, file.content_type)
+        # Transcribe audio using Gemini (use base content type for compatibility)
+        transcription = await transcribe_audio(file_content, base_content_type)
         
         return {
             "status": "success",

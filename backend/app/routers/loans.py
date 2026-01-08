@@ -1,15 +1,21 @@
 """
 Loans router for RISKOFF API.
 Handles loan applications and risk assessment with authentication.
+With rate limiting for security.
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.config import supabase_client
 from app.schemas import LoanCreate, LoanResponse, LoanApplication, RiskResult
 from app.services.risk_engine import calculate_risk_score
 from app.services import audit
 from app.services.llm import generate_rejection_reason, generate_approval_message
-from app.utils.security import get_current_user, CurrentUser
+from app.utils.security import get_current_user, CurrentUser, require_admin
+
+# Rate limiter for loan endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/loans",
@@ -18,7 +24,9 @@ router = APIRouter(
 
 
 @router.post("/apply", response_model=LoanResponse)
+@limiter.limit("3/minute")  # SECURITY: Prevent spam applications
 async def apply_for_loan(
+    request: Request,
     application: LoanCreate,
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -35,12 +43,22 @@ async def apply_for_loan(
         )
 
     try:
-        # Calculate risk score using the new engine
+        # Fetch existing approved loans for this user to calculate total EMI burden
+        existing_loans_response = supabase_client.table("loans").select("emi, status").eq(
+            "user_id", current_user.id
+        ).eq("status", "APPROVED").execute()
+        
+        existing_emi = 0.0
+        if existing_loans_response.data:
+            existing_emi = sum(float(loan.get("emi", 0) or 0) for loan in existing_loans_response.data)
+        
+        # Calculate risk score using the new engine (including existing EMI)
         risk_result = calculate_risk_score(
             amount=application.amount,
             tenure_months=application.tenure_months,
             income=application.monthly_income,
-            expenses=application.monthly_expenses
+            expenses=application.monthly_expenses,
+            existing_emi=existing_emi
         )
 
         # Generate AI explanation based on status
@@ -99,7 +117,8 @@ async def apply_for_loan(
             risk_score=risk_result["score"],
             max_approved_amount=max_approved,
             emi=risk_result["emi"],
-            ai_explanation=ai_explanation
+            ai_explanation=ai_explanation,
+            risk_reason=", ".join(risk_result["reasons"])
         )
 
     except HTTPException:
@@ -136,9 +155,13 @@ async def get_my_loans(current_user: CurrentUser = Depends(get_current_user)):
 
 
 @router.get("/")
-async def get_all_loans():
+async def get_all_loans(
+    current_user: CurrentUser = Depends(require_admin)  # SECURITY: Admin only
+):
     """
     Get all loan applications (admin view).
+    
+    SECURITY: Requires admin role.
     """
     if not supabase_client:
         raise HTTPException(
@@ -184,3 +207,71 @@ async def get_loan_by_id(loan_id: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.get("/{loan_id}/explanation")
+async def get_loan_explanation(
+    loan_id: int,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Get AI-generated explanation for a loan decision.
+    
+    Requires authentication. User can only access their own loans.
+    """
+    if not supabase_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Supabase client not initialized"
+        )
+
+    try:
+        # Fetch the loan
+        response = supabase_client.table("loans").select("*").eq("id", loan_id).execute()
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Loan not found"
+            )
+        
+        loan = response.data[0]
+        
+        # Security check: verify loan belongs to current user
+        if loan.get("user_id") != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this loan"
+            )
+        
+        # Check if already has explanation
+        if loan.get("ai_explanation"):
+            return {"explanation": loan.get("ai_explanation")}
+        
+        # Generate new explanation using LLM
+        from app.services.llm import generate_risk_explanation
+        
+        explanation = await generate_risk_explanation(
+            score=loan.get("risk_score", 0),
+            status=loan.get("status", "REJECTED"),
+            reasons=loan.get("risk_reason", "").split(", ") if loan.get("risk_reason") else []
+        )
+        
+        # Optionally save the explanation back to the loan
+        try:
+            supabase_client.table("loans").update({
+                "ai_explanation": explanation
+            }).eq("id", loan_id).execute()
+        except:
+            pass  # Non-critical if save fails
+        
+        return {"explanation": explanation}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating explanation: {str(e)}"
+        )
+
