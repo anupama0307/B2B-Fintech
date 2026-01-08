@@ -30,7 +30,7 @@ export default function UploadStatementPage() {
     formData.append("file", file);
 
     try {
-      const response = await api.post("/statement/upload", formData, {
+      const response = await api.post("/upload/bank-statement", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(response.data);
