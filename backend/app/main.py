@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import supabase_client
-from app.routers import auth, loans, upload, admin, zudu
+from app.routers import auth, loans, upload, admin, zudu, simulator
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -33,6 +33,7 @@ app.include_router(loans.router)
 app.include_router(upload.router)
 app.include_router(admin.router)
 app.include_router(zudu.router)
+app.include_router(simulator.router)
 
 
 @app.get("/", tags=["Root"])

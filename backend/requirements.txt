@@ -6,3 +6,6 @@ pydantic
 python-multipart
 google-generativeai
 pandas
+pytest
+httpx
+pydantic-settings

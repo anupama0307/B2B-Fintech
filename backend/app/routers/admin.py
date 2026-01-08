@@ -3,9 +3,11 @@ Admin router for RISKOFF API.
 Handles administrative operations on loans.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from app.config import supabase_client
 from app.schemas import LoanStatusUpdate
+from app.services.notification import notification_service
+from typing import Optional
 
 router = APIRouter(
     prefix="/admin",
@@ -14,7 +16,7 @@ router = APIRouter(
 
 
 @router.get("/loans")
-async def get_all_loans():
+async def get_all_loans(status: Optional[str] = Query(None, description="Filter by loan status (e.g., PENDING)")):
     """
     Get all loan applications for admin review.
     """
@@ -25,7 +27,12 @@ async def get_all_loans():
         )
 
     try:
-        response = supabase_client.table("loans").select("*").order("created_at", desc=True).execute()
+        query = supabase_client.table("loans").select("*").order("created_at", desc=True)
+        
+        if status:
+            query = query.eq("status", status)
+            
+        response = query.execute()
         return {"loans": response.data, "total": len(response.data)}
     except Exception as e:
         raise HTTPException(
@@ -65,9 +72,23 @@ async def update_loan_status(update: LoanStatusUpdate):
                 detail="Loan not found"
             )
 
+        # Send notification
+        # In a real app, we would fetch the user's email from the loan record or auth system
+        # For now, we'll try to get it from the loan data if available, or just log it
+        loan_data = response.data[0]
+        user_id = loan_data.get("user_id")
+        
+        # Try to fetch user email if we have user_id (optional, depends on auth setup)
+        # For this prototype, we'll assume we might not have it and just log
+        await notification_service.send_status_update(
+            loan_id=str(update.loan_id),
+            new_status=update.status,
+            applicant_email=None # Pass email if available in loan_data
+        )
+
         return {
             "message": "Loan status updated successfully",
-            "loan": response.data[0]
+            "loan": loan_data
         }
 
     except HTTPException:
