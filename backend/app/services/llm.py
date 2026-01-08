@@ -257,15 +257,37 @@ async def generate_bank_chat_response(
         Dictionary with 'response' and optional 'suggested_action'
     """
     # SECURITY: Sanitize user input to prevent prompt injection
-    # Remove common injection patterns
+    import unicodedata
+    import re
+    
+    # Normalize Unicode to prevent bypasses with look-alike characters
+    normalized_query = unicodedata.normalize('NFKC', user_query)
+    
+    # Remove zero-width and invisible characters
+    normalized_query = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', normalized_query)
+    
+    # Convert to lowercase for pattern matching
+    query_lower = normalized_query.lower()
+    
+    # Remove common injection patterns (expanded list)
     dangerous_patterns = [
+        # Instruction override attempts
         "ignore previous", "ignore above", "disregard", "forget",
         "new instructions", "system prompt", "admin mode", "sudo",
-        "pretend you are", "act as if", "you are now"
+        "pretend you are", "act as if", "you are now",
+        # Role manipulation
+        "you must", "override", "bypass", "jailbreak",
+        "developer mode", "dan mode", "unrestricted",
+        # Data extraction attempts
+        "reveal your prompt", "show system", "print instructions",
+        "what are your rules", "repeat your prompt",
+        # Separator injection
+        "###", "---", "===", "[system]", "[assistant]",
     ]
-    sanitized_query = user_query
+    
+    sanitized_query = normalized_query
     for pattern in dangerous_patterns:
-        if pattern.lower() in user_query.lower():
+        if pattern.lower() in query_lower:
             sanitized_query = "[Query filtered for security]"
             break
     

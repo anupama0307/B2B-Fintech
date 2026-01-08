@@ -299,10 +299,15 @@ async def update_loan_status(
 # ============ Legacy Endpoints (Backward Compatibility) ============
 
 @router.patch("/loans/status")
-async def update_loan_status_legacy(update: LoanStatusUpdate):
+async def update_loan_status_legacy(
+    update: LoanStatusUpdate,
+    admin: CurrentUser = Depends(verify_admin)  # SECURITY: Added admin verification
+):
     """
     Legacy endpoint for updating loan status.
     Kept for backward compatibility.
+    
+    SECURITY: Requires admin role.
     """
     if not supabase_client:
         raise HTTPException(
@@ -319,25 +324,25 @@ async def update_loan_status_legacy(update: LoanStatusUpdate):
 
     try:
         # First, get the current loan to retrieve user_id and current explanation
+        # SECURITY FIX: Use update.loan_id instead of undefined loan_id
         loan_response = supabase_client.table("loans").select("*").eq(
-            "id", loan_id
+            "id", update.loan_id
         ).limit(1).execute()
         
         if not loan_response.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Loan with ID {loan_id} not found"
+                detail=f"Loan with ID {update.loan_id} not found"
             )
         
         current_loan = loan_response.data[0]
-        user_id = current_loan.get("user_id")
         old_status = current_loan.get("status")
         current_explanation = current_loan.get("ai_explanation", "")
         
         # Prepare update data
         update_data = {"status": update.status}
         
-        # Append admin override to explanation
+        # Append admin override to explanation (now using the admin parameter)
         admin_note = f"\n\n[Admin Override by {admin.email}]"
         if update.remarks:
             admin_note += f": {update.remarks}"

@@ -1,14 +1,20 @@
 """
 Upload router for RISKOFF API.
 Handles receipt image and bank statement uploads with database persistence.
+With rate limiting for security.
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, status, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, status, Depends, Request
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.config import supabase_client
 from app.schemas import ReceiptData
 from app.services.parser import parse_bank_statement_csv, analyze_receipt_image, transcribe_audio
 from app.utils.security import get_current_user, CurrentUser, get_current_user_optional
+
+# Rate limiter for upload endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/upload",
@@ -339,7 +345,9 @@ async def transcribe_audio_file(
 
 
 @router.post("/kyc")
+@limiter.limit("5/minute")  # SECURITY: Prevent API quota exhaustion
 async def verify_kyc(
+    request: Request,
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user)
 ):

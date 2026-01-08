@@ -1,14 +1,16 @@
 """
 Risk Engine service for RISKOFF API.
 Calculates risk scores for loan applications using EMI and DTI metrics.
+Uses Decimal for precise currency calculations.
 """
 
 from typing import List, Dict, Any
+from decimal import Decimal, ROUND_HALF_UP
 
 
 def calculate_emi(principal: float, tenure_months: int, annual_rate: float = 12.0) -> float:
     """
-    Calculate EMI using standard formula.
+    Calculate EMI using standard formula with Decimal precision.
     
     EMI = P * r * (1 + r)^n / ((1 + r)^n - 1)
     
@@ -18,22 +20,26 @@ def calculate_emi(principal: float, tenure_months: int, annual_rate: float = 12.
         annual_rate: Annual interest rate (default 12%)
     
     Returns:
-        Monthly EMI amount
+        Monthly EMI amount (rounded to 2 decimal places)
     """
     if principal <= 0 or tenure_months <= 0:
         return 0.0
     
-    # Convert annual rate to monthly rate (as decimal)
-    monthly_rate = annual_rate / 12 / 100
+    # SECURITY: Use Decimal for precise currency calculations
+    P = Decimal(str(principal))
+    r = Decimal(str(annual_rate)) / Decimal("1200")  # Monthly rate as decimal
+    n = tenure_months
     
-    if monthly_rate == 0:
-        return principal / tenure_months
+    if r == 0:
+        emi = P / Decimal(str(n))
+    else:
+        # EMI formula: P * r * (1 + r)^n / ((1 + r)^n - 1)
+        factor = (1 + r) ** n
+        emi = P * r * factor / (factor - 1)
     
-    # EMI formula: P * r * (1 + r)^n / ((1 + r)^n - 1)
-    factor = (1 + monthly_rate) ** tenure_months
-    emi = principal * monthly_rate * factor / (factor - 1)
-    
-    return round(emi, 2)
+    # Round to 2 decimal places using banker's rounding
+    emi_rounded = float(emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    return emi_rounded
 
 
 def calculate_risk_score(

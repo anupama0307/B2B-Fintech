@@ -77,9 +77,12 @@ async def get_current_user(
             ).execute()
             if profile_response.data and profile_response.data[0].get("role"):
                 role = profile_response.data[0].get("role")
-        except:
-            # If profiles table query fails, use metadata (fallback)
-            role = user_metadata.get("role", "user")
+        except Exception as profile_error:
+            # SECURITY: If profiles table query fails, default to "user" role
+            # NEVER fall back to JWT metadata as it can be spoofed
+            import logging
+            logging.warning(f"Could not fetch user role from profiles: {profile_error}")
+            role = "user"  # Always default to lowest privilege
         
         return CurrentUser(
             id=user.id,
