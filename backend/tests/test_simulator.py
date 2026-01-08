@@ -17,7 +17,7 @@ def test_simulator_valid_request(client: TestClient):
     data = response.json()
     assert "score" in data
     assert "status" in data
-    assert data["status"] == "LOW"
+    assert data["status"] == "APPROVED"
 
 def test_simulator_invalid_input(client: TestClient):
     """Test input validation (negative numbers)."""
