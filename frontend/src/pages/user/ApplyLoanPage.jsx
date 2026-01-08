@@ -1,40 +1,43 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Navbar from '../../components/common/Navbar';
-import Sidebar from '../../components/common/Sidebar';
-import api from '../../services/api';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Navbar from "../../components/common/Navbar";
+import Sidebar from "../../components/common/Sidebar";
+import api from "../../services/api";
 
 export default function ApplyLoanPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   // MATCH BACKEND SCHEMA: { amount, tenure_months, monthly_income, monthly_expenses, purpose }
   const [formData, setFormData] = useState({
     amount: 100000,
     tenure_months: 36,
     monthly_income: 50000,
     monthly_expenses: 20000,
-    purpose: ''
+    purpose: "",
   });
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       // Ensure numbers are sent as numbers, not strings
-      [name]: type === 'number' || type === 'range' 
-        ? (name === 'tenure_months' ? parseInt(value, 10) : parseFloat(value)) || 0 
-        : value
+      [name]:
+        type === "number" || type === "range"
+          ? (name === "tenure_months"
+              ? parseInt(value, 10)
+              : parseFloat(value)) || 0
+          : value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
       // Send exactly what backend expects
       const payload = {
@@ -42,26 +45,40 @@ export default function ApplyLoanPage() {
         tenure_months: parseInt(formData.tenure_months, 10),
         monthly_income: parseFloat(formData.monthly_income),
         monthly_expenses: parseFloat(formData.monthly_expenses),
-        purpose: formData.purpose || ''
+        purpose: formData.purpose || "",
       };
-      
-      const response = await api.post('/loans/apply', payload);
+
+      const response = await api.post("/loans/apply", payload);
       setResult(response.data);
     } catch (err) {
-      console.error('Error applying for loan:', err);
-      setError(err.response?.data?.detail || 'Error submitting application');
+      console.error("Error applying for loan:", err);
+      // Handle Pydantic validation errors (which return detail as array)
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // Extract first error message from validation array
+        const firstError = detail[0];
+        setError(firstError?.msg || firstError?.message || "Validation error");
+      } else if (typeof detail === "string") {
+        setError(detail);
+      } else if (typeof detail === "object" && detail?.message) {
+        setError(detail.message);
+      } else {
+        setError(err.response?.data?.message || "Error submitting application");
+      }
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Calculate estimated EMI for display
   const calculateEMI = () => {
     const principal = formData.amount;
     const months = formData.tenure_months;
     const rate = 0.12 / 12; // Assuming 12% annual rate
     if (months === 0) return 0;
-    const emi = (principal * rate * Math.pow(1 + rate, months)) / (Math.pow(1 + rate, months) - 1);
+    const emi =
+      (principal * rate * Math.pow(1 + rate, months)) /
+      (Math.pow(1 + rate, months) - 1);
     return Math.round(emi);
   };
 
@@ -76,55 +93,84 @@ export default function ApplyLoanPage() {
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-8">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">💰 Apply for Loan</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
+            💰 Apply for Loan
+          </h1>
 
           {result ? (
             <div className="max-w-2xl mx-auto">
-              <div className={`rounded-xl p-8 text-center ${
-                result.status === 'APPROVED' ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' :
-                result.status === 'REJECTED' ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-500' :
-                'bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-500'
-              }`}>
+              <div
+                className={`rounded-xl p-8 text-center ${
+                  result.status === "APPROVED"
+                    ? "bg-green-50 dark:bg-green-900/20 border-2 border-green-500"
+                    : result.status === "REJECTED"
+                    ? "bg-red-50 dark:bg-red-900/20 border-2 border-red-500"
+                    : "bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-500"
+                }`}
+              >
                 <div className="text-5xl mb-4">
-                  {result.status === 'APPROVED' ? '✅' : 
-                   result.status === 'REJECTED' ? '❌' : '⏳'}
+                  {result.status === "APPROVED"
+                    ? "✅"
+                    : result.status === "REJECTED"
+                    ? "❌"
+                    : "⏳"}
                 </div>
                 <h2 className="text-2xl font-bold mb-2 dark:text-white">
-                  {result.status === 'APPROVED' ? 'Loan Approved!' : 
-                   result.status === 'REJECTED' ? 'Loan Rejected' : 'Under Review'}
+                  {result.status === "APPROVED"
+                    ? "Loan Approved!"
+                    : result.status === "REJECTED"
+                    ? "Loan Rejected"
+                    : "Under Review"}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   Application ID: #{result.loan_id || result.id}
                 </p>
-                
+
                 <div className="grid grid-cols-2 gap-4 text-left mt-6 mb-6">
                   <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Risk Score</p>
-                    <p className="text-xl font-bold dark:text-white">{result.risk_score || 'N/A'}%</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Risk Category</p>
-                    <p className="text-xl font-bold dark:text-white">{result.risk_category || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Monthly EMI</p>
-                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                      ₹{(result.monthly_emi || result.emi || 0).toLocaleString('en-IN')}
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Risk Score
+                    </p>
+                    <p className="text-xl font-bold dark:text-white">
+                      {result.risk_score || "N/A"}%
                     </p>
                   </div>
                   <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Decision</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Risk Category
+                    </p>
                     <p className="text-xl font-bold dark:text-white">
-                      {result.auto_decision ? 'Auto' : 'Manual Review'}
+                      {result.risk_category || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Monthly EMI
+                    </p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      ₹
+                      {(result.monthly_emi || result.emi || 0).toLocaleString(
+                        "en-IN"
+                      )}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Decision
+                    </p>
+                    <p className="text-xl font-bold dark:text-white">
+                      {result.auto_decision ? "Auto" : "Manual Review"}
                     </p>
                   </div>
                 </div>
 
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">{result.recommendation}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                  {result.recommendation}
+                </p>
 
                 <div className="flex gap-4 justify-center">
                   <button
-                    onClick={() => navigate('/my-loans')}
+                    onClick={() => navigate("/my-loans")}
                     className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700"
                   >
                     View My Loans
@@ -132,13 +178,13 @@ export default function ApplyLoanPage() {
                   <button
                     onClick={() => {
                       setResult(null);
-                      setError('');
+                      setError("");
                       setFormData({
                         amount: 100000,
                         tenure_months: 36,
                         monthly_income: 50000,
                         monthly_expenses: 20000,
-                        purpose: ''
+                        purpose: "",
                       });
                     }}
                     className="bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-slate-600"
@@ -160,7 +206,7 @@ export default function ApplyLoanPage() {
                 {/* Loan Amount */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Loan Amount: ₹{formData.amount.toLocaleString('en-IN')}
+                    Loan Amount: ₹{formData.amount.toLocaleString("en-IN")}
                   </label>
                   <input
                     type="range"
@@ -251,9 +297,11 @@ export default function ApplyLoanPage() {
                 {/* EMI Preview */}
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex justify-between items-center">
-                    <span className="text-blue-700 dark:text-blue-300 font-medium">Estimated Monthly EMI</span>
+                    <span className="text-blue-700 dark:text-blue-300 font-medium">
+                      Estimated Monthly EMI
+                    </span>
                     <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      ₹{calculateEMI().toLocaleString('en-IN')}
+                      ₹{calculateEMI().toLocaleString("en-IN")}
                     </span>
                   </div>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -262,11 +310,16 @@ export default function ApplyLoanPage() {
                 </div>
 
                 {/* Disposable Income Warning */}
-                {formData.monthly_income - formData.monthly_expenses < calculateEMI() && (
+                {formData.monthly_income - formData.monthly_expenses <
+                  calculateEMI() && (
                   <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                     <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-                      ⚠️ Your disposable income (₹{(formData.monthly_income - formData.monthly_expenses).toLocaleString('en-IN')}) 
-                      may be insufficient for the estimated EMI. This could affect your approval.
+                      ⚠️ Your disposable income (₹
+                      {(
+                        formData.monthly_income - formData.monthly_expenses
+                      ).toLocaleString("en-IN")}
+                      ) may be insufficient for the estimated EMI. This could
+                      affect your approval.
                     </p>
                   </div>
                 )}
@@ -276,7 +329,7 @@ export default function ApplyLoanPage() {
                   disabled={loading}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {loading ? 'Submitting...' : '📤 Submit Application'}
+                  {loading ? "Submitting..." : "📤 Submit Application"}
                 </button>
               </form>
             </div>
