@@ -47,108 +47,108 @@ export default function RiskAnalysisPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg">
       <Navbar />
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-8">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">🎯 Risk Analysis Tool</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-dark-text mb-6">🎯 Risk Analysis Tool</h1>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Form */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Customer Details</h2>
+            <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-dark-text mb-4">Customer Details</h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Age</label>
                     <input
                       type="number"
                       name="age"
                       value={formData.age}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus: ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Annual Income (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Annual Income (₹)</label>
                     <input
                       type="number"
                       name="annual_income"
                       value={formData.annual_income}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employment Years</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Employment Years</label>
                     <input
                       type="number"
                       name="employment_years"
                       value={formData.employment_years}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Expenses (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Monthly Expenses (₹)</label>
                     <input
                       type="number"
                       name="monthly_expenses"
                       value={formData.monthly_expenses}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Existing Loan Amount (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Existing Loan Amount (₹)</label>
                     <input
                       type="number"
                       name="existing_loan_amount"
-                      value={formData. existing_loan_amount}
+                      value={formData.existing_loan_amount}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Score (0-900)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Customer Score (0-900)</label>
                     <input
                       type="number"
                       name="customer_score"
                       value={formData.customer_score}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                       min="0"
                       max="900"
                     />
                   </div>
                 </div>
 
-                <hr className="my-4" />
-                <h3 className="font-semibold text-gray-800">Loan Details</h3>
+                <hr className="my-4 dark:border-dark-border" />
+                <h3 className="font-semibold text-gray-800 dark:text-dark-text">Loan Details</h3>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Loan Amount (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Loan Amount (₹)</label>
                     <input
                       type="number"
                       name="loan_amount_requested"
                       value={formData.loan_amount_requested}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tenure:  {getTenureDisplay(formData.loan_tenure_months)}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">
+                      Tenure: {getTenureDisplay(formData.loan_tenure_months)}
                     </label>
                     <input
                       type="range"
                       name="loan_tenure_months"
                       value={formData.loan_tenure_months}
                       onChange={handleChange}
-                      className="w-full"
+                      className="w-full accent-blue-600"
                       min="6"
                       max="240"
                       step="6"
@@ -164,7 +164,7 @@ export default function RiskAnalysisPage() {
                     onChange={handleChange}
                     className="h-4 w-4 text-blue-600 rounded"
                   />
-                  <label className="ml-2 text-sm text-gray-700">Has Expense Mismatch (Fraud Flag)</label>
+                  <label className="ml-2 text-sm text-gray-700 dark:text-dark-muted">Has Expense Mismatch (Fraud Flag)</label>
                 </div>
 
                 <button
@@ -179,62 +179,62 @@ export default function RiskAnalysisPage() {
 
             {/* Result */}
             <div>
-              {result ?  (
+              {result ? (
                 <div className="space-y-4">
                   {/* Decision Card */}
                   <div className={`rounded-xl p-6 ${
-                    result.decision === 'AUTO_APPROVE' ? 'bg-green-50 border-2 border-green-500' :
-                    result.decision === 'MANUAL_REVIEW' ? 'bg-yellow-50 border-2 border-yellow-500' :
-                    'bg-red-50 border-2 border-red-500'
+                    result.decision === 'AUTO_APPROVE' ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' :
+                    result.decision === 'MANUAL_REVIEW' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-500' :
+                    'bg-red-50 dark:bg-red-900/20 border-2 border-red-500'
                   }`}>
                     <div className="text-center">
                       <div className="text-4xl mb-2">
                         {result.decision === 'AUTO_APPROVE' ? '✅' : 
-                         result.decision === 'MANUAL_REVIEW' ? '⚠️' :  '❌'}
+                         result.decision === 'MANUAL_REVIEW' ? '⚠️' : '❌'}
                       </div>
-                      <h2 className="text-2xl font-bold">
+                      <h2 className="text-2xl font-bold dark:text-dark-text">
                         {result.decision === 'AUTO_APPROVE' ? 'Auto Approve' : 
-                         result. decision === 'MANUAL_REVIEW' ? 'Manual Review' :  'Auto Reject'}
+                         result.decision === 'MANUAL_REVIEW' ? 'Manual Review' : 'Auto Reject'}
                       </h2>
                       <div className="mt-4">
-                        <p className="text-sm">Risk Score</p>
-                        <p className="text-3xl font-bold">{result.risk_percentage}%</p>
-                        <p className="text-sm font-semibold mt-1">{result.risk_category} RISK</p>
+                        <p className="text-sm dark:text-dark-muted">Risk Score</p>
+                        <p className="text-3xl font-bold dark:text-dark-text">{result.risk_percentage}%</p>
+                        <p className="text-sm font-semibold mt-1 dark:text-dark-muted">{result.risk_category} RISK</p>
                       </div>
                     </div>
                   </div>
 
                   {/* EMI Info */}
-                  <div className="bg-white rounded-xl shadow-sm p-6">
-                    <h3 className="font-semibold text-gray-800 mb-4">📊 EMI Analysis</h3>
+                  <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm p-6">
+                    <h3 className="font-semibold text-gray-800 dark:text-dark-text mb-4">📊 EMI Analysis</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500">Monthly EMI</p>
-                        <p className="text-xl font-bold text-blue-600">
-                          ₹{result.monthly_emi?. toLocaleString('en-IN')}
+                        <p className="text-sm text-gray-500 dark:text-dark-muted">Monthly EMI</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          ₹{result.monthly_emi?.toLocaleString('en-IN')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">EMI to Income</p>
-                        <p className="text-xl font-bold">{result. emi_to_income_ratio}%</p>
+                        <p className="text-sm text-gray-500 dark:text-dark-muted">EMI to Income</p>
+                        <p className="text-xl font-bold dark:text-dark-text">{result.emi_to_income_ratio}%</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Max Loan */}
-                  <div className="bg-white rounded-xl shadow-sm p-6">
-                    <h3 className="font-semibold text-gray-800 mb-2">💰 Max Recommended Loan</h3>
-                    <p className="text-2xl font-bold text-green-600">
+                  <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm p-6">
+                    <h3 className="font-semibold text-gray-800 dark:text-dark-text mb-2">💰 Max Recommended Loan</h3>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                       ₹{result.max_recommended_loan?.toLocaleString('en-IN')}
                     </p>
                   </div>
 
                   {/* Risk Factors */}
-                  <div className="bg-white rounded-xl shadow-sm p-6">
-                    <h3 className="font-semibold text-gray-800 mb-3">🔍 Risk Factors</h3>
+                  <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm p-6">
+                    <h3 className="font-semibold text-gray-800 dark:text-dark-text mb-3">🔍 Risk Factors</h3>
                     <ul className="space-y-2">
-                      {result.risk_factors?. map((factor, index) => (
-                        <li key={index} className="flex items-start text-sm">
+                      {result.risk_factors?.map((factor, index) => (
+                        <li key={index} className="flex items-start text-sm dark:text-dark-muted">
                           <span className="text-red-500 mr-2">•</span>
                           {factor}
                         </li>
@@ -243,16 +243,16 @@ export default function RiskAnalysisPage() {
                   </div>
 
                   {/* Recommendation */}
-                  <div className="bg-yellow-50 rounded-xl p-6 border border-yellow-200">
-                    <h3 className="font-semibold text-yellow-800 mb-2">📋 Recommendation</h3>
-                    <p className="text-yellow-900">{result.recommendation}</p>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
+                    <h3 className="font-semibold text-yellow-800 dark:text-yellow-400 mb-2">📋 Recommendation</h3>
+                    <p className="text-yellow-900 dark:text-yellow-300">{result.recommendation}</p>
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-12 text-center">
+                <div className="bg-gray-50 dark:bg-dark-card rounded-xl border-2 border-dashed border-gray-300 dark:border-dark-border p-12 text-center">
                   <div className="text-6xl mb-4">📊</div>
-                  <h3 className="text-lg font-semibold text-gray-700">Risk Analysis Result</h3>
-                  <p className="text-gray-500 mt-2">Fill the form and click "Analyze Risk"</p>
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-dark-text">Risk Analysis Result</h3>
+                  <p className="text-gray-500 dark:text-dark-muted mt-2">Fill the form and click "Analyze Risk"</p>
                 </div>
               )}
             </div>

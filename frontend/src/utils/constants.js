@@ -7,7 +7,7 @@ export const LOAN_TYPES = [
 ];
 
 export const LOAN_PROVIDERS = [
-  'RISKON Bank',
+  'RISKOFF Bank',
   'ICICI Bank',
   'SBI',
   'HDFC Bank',

@@ -25,7 +25,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg">
         <Navbar />
         <div className="flex">
           <Sidebar />
@@ -38,12 +38,12 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg">
       <Navbar />
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-8">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-dark-text mb-6">Admin Dashboard</h1>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
             />
             <StatCard
               title="Open Grievances"
-              value={stats?. open_grievances || 0}
+              value={stats?.open_grievances || 0}
               icon="💬"
               color="purple"
             />
@@ -102,9 +102,9 @@ export default function AdminDashboard() {
           </div>
 
           {/* Total Disbursed */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Amount Disbursed</h3>
-            <p className="text-3xl font-bold text-green-600">
+          <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-700 dark:text-dark-muted mb-2">Total Amount Disbursed</h3>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">
               ₹{(stats?.total_disbursed || 0).toLocaleString('en-IN')}
             </p>
           </div>
@@ -116,19 +116,19 @@ export default function AdminDashboard() {
 
 function StatCard({ title, value, icon, color }) {
   const colorClasses = {
-    blue: 'bg-blue-50 text-blue-700',
-    green: 'bg-green-50 text-green-700',
-    yellow: 'bg-yellow-50 text-yellow-700',
-    red: 'bg-red-50 text-red-700',
-    purple:  'bg-purple-50 text-purple-700'
+    blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    green: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    yellow: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
+    red: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+    purple: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6">
+    <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-3xl font-bold text-gray-800 mt-1">{value}</p>
+          <p className="text-sm text-gray-500 dark:text-dark-muted">{title}</p>
+          <p className="text-3xl font-bold text-gray-800 dark:text-dark-text mt-1">{value}</p>
         </div>
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${colorClasses[color]}`}>
           {icon}
