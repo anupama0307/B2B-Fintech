@@ -22,7 +22,7 @@ export default function UserDashboard() {
       const response = await api.get('/loans/my-loans');
       const loanData = response.data.loans || [];
       setLoans(loanData);
-      
+
       const active = loanData.filter(l => l.status === 'APPROVED').length;
       const pending = loanData.filter(l => l.status === 'PENDING').length;
       const totalBorrowed = loanData

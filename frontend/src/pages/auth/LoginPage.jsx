@@ -60,11 +60,10 @@ export default function LoginPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode
+      className={`min-h-screen transition-colors duration-300 ${isDarkMode
           ? "bg-slate-900"
           : "bg-gradient-to-br from-blue-50 to-indigo-100"
-      } flex items-center justify-center p-4`}
+        } flex items-center justify-center p-4`}
     >
       <button
         onClick={() => setIsDarkMode(!isDarkMode)}
@@ -78,11 +77,10 @@ export default function LoginPage() {
       </button>
 
       <div
-        className={`w-full max-w-md p-8 rounded-2xl shadow-2xl transition-all duration-300 ${
-          isDarkMode
+        className={`w-full max-w-md p-8 rounded-2xl shadow-2xl transition-all duration-300 ${isDarkMode
             ? "bg-slate-800 border border-slate-700"
             : "bg-white border border-white/50"
-        }`}
+          }`}
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">

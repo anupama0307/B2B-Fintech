@@ -180,9 +180,15 @@ async def get_all_loans(
 
 
 @router.get("/{loan_id}")
-async def get_loan_by_id(loan_id: str):
+async def get_loan_by_id(
+    loan_id: str,
+    current_user: CurrentUser = Depends(get_current_user)  # SECURITY: Added authentication
+):
     """
     Get a specific loan by ID.
+    
+    SECURITY: Requires authentication. Users can only access their own loans.
+    Admins can access any loan.
     """
     if not supabase_client:
         raise HTTPException(
@@ -199,7 +205,16 @@ async def get_loan_by_id(loan_id: str):
                 detail="Loan not found"
             )
 
-        return response.data[0]
+        loan = response.data[0]
+        
+        # SECURITY: Verify ownership - users can only access their own loans
+        if loan.get("user_id") != current_user.id and current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this loan"
+            )
+
+        return loan
     except HTTPException:
         raise
     except Exception as e:
