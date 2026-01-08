@@ -1,0 +1,36 @@
+# Python cache and bytecode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment secrets (DO NOT bake into image)
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# Testing
+.pytest_cache
+tests/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+README.md
+docs/
+
+# Docker files (avoid recursive copying)
+Dockerfile
+docker-compose.yml
