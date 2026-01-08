@@ -279,6 +279,11 @@ ARCHITECTURE DIAGRAM
 <img width="1600" height="872" alt="image" src="https://github.com/user-attachments/assets/f1e0f35b-429f-4141-a8fe-aa70ed7dfaf3" />
 
 
+VIMEO LINK
+
+https://vimeo.com/1152642038?fl=ip&fe=ec
+https://vimeo.com/1152642490?fl=ip&fe=ec
+
 
 
 
