@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Sidebar from '../../components/common/Sidebar';
@@ -6,61 +6,63 @@ import api from '../../services/api';
 
 export default function ApplyLoanPage() {
   const navigate = useNavigate();
-  const [loanTypes, setLoanTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
   
+  // MATCH BACKEND SCHEMA: { amount, tenure_months, monthly_income, monthly_expenses, purpose }
   const [formData, setFormData] = useState({
-    loan_type: 'personal',
-    loan_provider: 'RISKOFF Bank',
-    loan_amount: 100000,
-    loan_tenure_months: 36,
-    loan_purpose: ''
+    amount: 100000,
+    tenure_months: 36,
+    monthly_income: 50000,
+    monthly_expenses: 20000,
+    purpose: ''
   });
 
-  const providers = [
-    'RISKOFF Bank',
-    'ICICI Bank',
-    'SBI',
-    'HDFC Bank',
-    'Axis Bank',
-    'Kotak Mahindra Bank'
-  ];
-
-  useEffect(() => {
-    fetchLoanTypes();
-  }, []);
-
-  const fetchLoanTypes = async () => {
-    try {
-      const response = await api.get('/loans/types/list');
-      setLoanTypes(response. data. loan_types);
-    } catch (error) {
-      console.error('Error fetching loan types:', error);
-    }
-  };
-
   const handleChange = (e) => {
-    const { name, value, type } = e. target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value
+      // Ensure numbers are sent as numbers, not strings
+      [name]: type === 'number' || type === 'range' 
+        ? (name === 'tenure_months' ? parseInt(value, 10) : parseFloat(value)) || 0 
+        : value
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
     try {
-      const response = await api.post('/loans/apply', formData);
+      // Send exactly what backend expects
+      const payload = {
+        amount: parseFloat(formData.amount),
+        tenure_months: parseInt(formData.tenure_months, 10),
+        monthly_income: parseFloat(formData.monthly_income),
+        monthly_expenses: parseFloat(formData.monthly_expenses),
+        purpose: formData.purpose || ''
+      };
+      
+      const response = await api.post('/loans/apply', payload);
       setResult(response.data);
-    } catch (error) {
-      console. error('Error applying for loan:', error);
-      alert('Error submitting application');
+    } catch (err) {
+      console.error('Error applying for loan:', err);
+      setError(err.response?.data?.detail || 'Error submitting application');
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Calculate estimated EMI for display
+  const calculateEMI = () => {
+    const principal = formData.amount;
+    const months = formData.tenure_months;
+    const rate = 0.12 / 12; // Assuming 12% annual rate
+    if (months === 0) return 0;
+    const emi = (principal * rate * Math.pow(1 + rate, months)) / (Math.pow(1 + rate, months) - 1);
+    return Math.round(emi);
   };
 
   const getTenureDisplay = (months) => {
@@ -68,53 +70,51 @@ export default function ApplyLoanPage() {
     return `${(months / 12).toFixed(1)} years`;
   };
 
-  const selectedLoanType = loanTypes.find(lt => lt.id === formData.loan_type);
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <Navbar />
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-8">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-dark-text mb-6">💰 Apply for Loan</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">💰 Apply for Loan</h1>
 
           {result ? (
             <div className="max-w-2xl mx-auto">
               <div className={`rounded-xl p-8 text-center ${
-                result.status === 'approved' ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' :
-                result.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-500' :
+                result.status === 'APPROVED' ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' :
+                result.status === 'REJECTED' ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-500' :
                 'bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-500'
               }`}>
                 <div className="text-5xl mb-4">
-                  {result.status === 'approved' ? '✅' : 
-                   result.status === 'rejected' ? '❌' : '⏳'}
+                  {result.status === 'APPROVED' ? '✅' : 
+                   result.status === 'REJECTED' ? '❌' : '⏳'}
                 </div>
-                <h2 className="text-2xl font-bold mb-2 dark:text-dark-text">
-                  {result.status === 'approved' ? 'Loan Approved!' : 
-                   result.status === 'rejected' ? 'Loan Rejected' : 'Under Review'}
+                <h2 className="text-2xl font-bold mb-2 dark:text-white">
+                  {result.status === 'APPROVED' ? 'Loan Approved!' : 
+                   result.status === 'REJECTED' ? 'Loan Rejected' : 'Under Review'}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  Application ID: #{result.loan_id}
+                  Application ID: #{result.loan_id || result.id}
                 </p>
                 
                 <div className="grid grid-cols-2 gap-4 text-left mt-6 mb-6">
-                  <div className="bg-white dark:bg-dark-card p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-dark-muted">Risk Score</p>
-                    <p className="text-xl font-bold dark:text-dark-text">{result.risk_score}%</p>
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Risk Score</p>
+                    <p className="text-xl font-bold dark:text-white">{result.risk_score || 'N/A'}%</p>
                   </div>
-                  <div className="bg-white dark:bg-dark-card p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-dark-muted">Risk Category</p>
-                    <p className="text-xl font-bold dark:text-dark-text">{result.risk_category}</p>
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Risk Category</p>
+                    <p className="text-xl font-bold dark:text-white">{result.risk_category || 'N/A'}</p>
                   </div>
-                  <div className="bg-white dark:bg-dark-card p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-dark-muted">Monthly EMI</p>
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Monthly EMI</p>
                     <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                      ₹{result.monthly_emi?.toLocaleString('en-IN')}
+                      ₹{(result.monthly_emi || result.emi || 0).toLocaleString('en-IN')}
                     </p>
                   </div>
-                  <div className="bg-white dark:bg-dark-card p-4 rounded-lg">
-                    <p className="text-sm text-gray-500 dark:text-dark-muted">Decision</p>
-                    <p className="text-xl font-bold dark:text-dark-text">
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Decision</p>
+                    <p className="text-xl font-bold dark:text-white">
                       {result.auto_decision ? 'Auto' : 'Manual Review'}
                     </p>
                   </div>
@@ -132,15 +132,16 @@ export default function ApplyLoanPage() {
                   <button
                     onClick={() => {
                       setResult(null);
+                      setError('');
                       setFormData({
-                        loan_type: 'personal',
-                        loan_provider: 'RISKOFF Bank',
-                        loan_amount: 100000,
-                        loan_tenure_months: 36,
-                        loan_purpose: ''
+                        amount: 100000,
+                        tenure_months: 36,
+                        monthly_income: 50000,
+                        monthly_expenses: 20000,
+                        purpose: ''
                       });
                     }}
-                    className="bg-gray-200 dark:bg-dark-border text-gray-700 dark:text-dark-text px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600"
+                    className="bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-slate-600"
                   >
                     Apply for Another
                   </button>
@@ -148,99 +149,127 @@ export default function ApplyLoanPage() {
               </div>
             </div>
           ) : (
-            <div className="max-w-2xl mx-auto bg-white dark:bg-dark-card rounded-xl shadow-sm p-8">
+            <div className="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-sm p-8">
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Loan Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-2">Loan Type</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {loanTypes.map((type) => (
-                      <button
-                        key={type.id}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, loan_type: type.id }))}
-                        className={`p-4 border-2 rounded-lg text-left transition ${
-                          formData.loan_type === type.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-dark-border hover:border-gray-300 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <p className="font-semibold dark:text-dark-text">{type.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-dark-muted">{type.rate}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Loan Provider */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Loan Provider</label>
-                  <select
-                    name="loan_provider"
-                    value={formData.loan_provider}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
-                  >
-                    {providers.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-
                 {/* Loan Amount */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">
-                    Loan Amount: ₹{formData.loan_amount.toLocaleString('en-IN')}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Loan Amount: ₹{formData.amount.toLocaleString('en-IN')}
                   </label>
                   <input
                     type="range"
-                    name="loan_amount"
-                    value={formData.loan_amount}
+                    name="amount"
+                    value={formData.amount}
                     onChange={handleChange}
-                    min={selectedLoanType?.min || 10000}
-                    max={selectedLoanType?.max || 1000000}
+                    min={10000}
+                    max={5000000}
                     step={10000}
                     className="w-full accent-blue-600"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-dark-muted">
-                    <span>₹{(selectedLoanType?.min || 10000).toLocaleString('en-IN')}</span>
-                    <span>₹{(selectedLoanType?.max || 1000000).toLocaleString('en-IN')}</span>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <span>₹10,000</span>
+                    <span>₹50,00,000</span>
                   </div>
                 </div>
 
                 {/* Tenure */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">
-                    Tenure: {getTenureDisplay(formData.loan_tenure_months)}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Loan Tenure: {getTenureDisplay(formData.tenure_months)}
                   </label>
                   <input
                     type="range"
-                    name="loan_tenure_months"
-                    value={formData.loan_tenure_months}
+                    name="tenure_months"
+                    value={formData.tenure_months}
                     onChange={handleChange}
                     min={6}
                     max={240}
                     step={6}
                     className="w-full accent-blue-600"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-dark-muted">
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <span>6 months</span>
                     <span>20 years</span>
                   </div>
                 </div>
 
-                {/* Purpose */}
+                {/* Monthly Income */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-muted mb-1">Purpose (Optional)</label>
-                  <textarea
-                    name="loan_purpose"
-                    value={formData.loan_purpose}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Monthly Income (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="monthly_income"
+                    value={formData.monthly_income}
                     onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-2 border dark:border-dark-border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-dark-bg dark:text-dark-text"
-                    placeholder="Brief description of loan purpose..."
+                    min={0}
+                    className="w-full px-4 py-3 border dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
+                    placeholder="Enter your monthly income"
+                    required
                   />
                 </div>
+
+                {/* Monthly Expenses */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Monthly Expenses (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="monthly_expenses"
+                    value={formData.monthly_expenses}
+                    onChange={handleChange}
+                    min={0}
+                    className="w-full px-4 py-3 border dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
+                    placeholder="Enter your monthly expenses"
+                    required
+                  />
+                </div>
+
+                {/* Purpose */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Loan Purpose (Optional)
+                  </label>
+                  <textarea
+                    name="purpose"
+                    value={formData.purpose}
+                    onChange={handleChange}
+                    rows={3}
+                    className="w-full px-4 py-3 border dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
+                    placeholder="Brief description of why you need this loan..."
+                  />
+                </div>
+
+                {/* EMI Preview */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-blue-700 dark:text-blue-300 font-medium">Estimated Monthly EMI</span>
+                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      ₹{calculateEMI().toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    *Approximate calculation at 12% annual interest rate
+                  </p>
+                </div>
+
+                {/* Disposable Income Warning */}
+                {formData.monthly_income - formData.monthly_expenses < calculateEMI() && (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+                      ⚠️ Your disposable income (₹{(formData.monthly_income - formData.monthly_expenses).toLocaleString('en-IN')}) 
+                      may be insufficient for the estimated EMI. This could affect your approval.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   type="submit"
