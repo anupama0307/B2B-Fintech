@@ -13,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import supabase_client
 from app.routers import auth, loans, upload, admin, agent
+from app.routers import auth, loans, upload, admin, zudu, user
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -47,8 +48,9 @@ app.include_router(auth.router)
 app.include_router(loans.router)
 app.include_router(upload.router)
 app.include_router(admin.router)
+app.include_router(agent.router)
 app.include_router(zudu.router)
-app.include_router(simulator.router)
+app.include_router(user.router)
 
 
 @app.get("/", tags=["Root"])

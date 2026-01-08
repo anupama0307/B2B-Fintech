@@ -13,36 +13,60 @@ export function AuthProvider({ children }) {
     
     if (token && savedUser) {
       setUser(JSON.parse(savedUser));
-      api.defaults.headers. common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-    const response = await api. post('/auth/login', { email, password });
-    return response.data;
-  };
-
-  const verifyOTP = async (email, otp) => {
-    const response = await api.post('/auth/login/verify', { email, otp });
-    const { access_token, user:  userData } = response. data;
+    const response = await api.post('/auth/login', { email, password });
+    const { access_token, user_id, email: userEmail, full_name } = response.data;
     
+    // Set token first so we can fetch profile
     localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    api.defaults.headers. common['Authorization'] = `Bearer ${access_token}`;
+    api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
     
+    // Fetch actual role from profile
+    let role = 'user';
+    try {
+      const profileResponse = await api.get('/user/profile');
+      role = profileResponse.data?.role || 'user';
+    } catch (err) {
+      console.error('Error fetching profile role:', err);
+    }
+    
+    const userData = {
+      id: user_id,
+      email: userEmail,
+      full_name: full_name,
+      role: role
+    };
+    
+    localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   };
 
-  const register = async (data) => {
-    const response = await api.post('/auth/register', data);
-    return response.data;
+  const verifyOTP = async (email, otp) => {
+    // OTP not used - login handles everything directly
+    return user;
   };
 
-  const verifyRegisterOTP = async (email, otp) => {
-    const response = await api.post('/auth/verify-otp', { email, otp });
-    const { access_token, user: userData } = response.data;
+  const register = async (data) => {
+    const response = await api.post('/auth/signup', data);
+    const { access_token, user_id, email: userEmail, full_name, message } = response.data;
+    
+    // If email confirmation is required (no token returned)
+    if (!access_token) {
+      return { requiresEmailConfirmation: true, message };
+    }
+    
+    const userData = {
+      id: user_id,
+      email: userEmail,
+      full_name: full_name,
+      role: 'user'
+    };
     
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -52,8 +76,13 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
+  const verifyRegisterOTP = async (email, otp) => {
+    // OTP not used - register handles everything directly
+    return user;
+  };
+
   const logout = () => {
-    localStorage. removeItem('token');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
