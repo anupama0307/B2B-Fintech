@@ -4,7 +4,7 @@ A Fintech application for risk assessment and loan management.
 With rate limiting and security middleware.
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -12,8 +12,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config import supabase_client
-from app.routers import auth, loans, upload, admin, agent
-from app.routers import auth, loans, upload, admin, zudu, user
+from app.routers import auth, loans, upload, admin, agent, zudu, user, grievances
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -34,14 +33,50 @@ app.state.limiter = limiter
 # Add rate limit exceeded exception handler
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configure CORS middleware
+# Configure CORS middleware - SECURITY: Restrict to known origins only
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",      # React dev server
+        "http://localhost:5173",      # Vite dev server
+        "http://127.0.0.1:3000",
+        # Add production domains here:
+        # "https://riskoff.vercel.app",
+        # "https://yourdomain.com",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Zudu-Key"],
 )
+
+
+# ============ Global Exception Handlers ============
+# Ensures all errors return consistent JSON structure for frontend
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with consistent JSON response."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "message": exc.detail,
+            "code": exc.status_code
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions with consistent JSON response."""
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "message": "An unexpected error occurred. Please try again later.",
+            "code": 500
+        }
+    )
 
 # Include all routers
 app.include_router(auth.router)
@@ -51,7 +86,7 @@ app.include_router(admin.router)
 app.include_router(agent.router)
 app.include_router(zudu.router)
 app.include_router(user.router)
-app.include_router(analytics.router)
+app.include_router(grievances.router)
 
 
 @app.get("/", tags=["Root"])

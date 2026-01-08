@@ -1,7 +1,8 @@
 module.exports = {
   content: ["./src/**/*.{js,jsx}"],
-  theme:  {
-    extend:  {}
+  darkMode: 'class', // Enable manual dark mode toggle
+  theme: {
+    extend: {},
   },
   plugins: []
 }

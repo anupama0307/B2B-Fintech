@@ -2,8 +2,9 @@
 Pydantic schemas for data validation.
 """
 
+import re
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ============ User Schemas ============
@@ -14,13 +15,35 @@ class UserSignup(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15, description="User's phone number")
     password: str = Field(..., min_length=8, description="User's password")
 
+    @field_validator('password')
+    @classmethod
+    def validate_password_strength(cls, v):
+        """SECURITY: Enforce password complexity."""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        return v
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        """Validate phone number format."""
+        if not re.match(r'^[0-9+\-\s()]+$', v):
+            raise ValueError('Invalid phone number format')
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
                 "email": "user@example.com",
                 "full_name": "John Doe",
                 "phone": "1234567890",
-                "password": "securepassword123"
+                "password": "SecurePass123"
             }
         }
 
@@ -78,6 +101,7 @@ class LoanResponse(BaseModel):
     max_approved_amount: Optional[float] = Field(None, description="Maximum approved loan amount")
     emi: float = Field(..., description="Calculated EMI amount")
     ai_explanation: str = Field(..., description="AI-generated explanation")
+    risk_reason: Optional[str] = Field(None, description="Detailed risk assessment reasons")
 
     class Config:
         json_schema_extra = {
@@ -87,7 +111,8 @@ class LoanResponse(BaseModel):
                 "risk_score": 25.0,
                 "max_approved_amount": 100000.00,
                 "emi": 8884.88,
-                "ai_explanation": "Congratulations! Your loan has been approved based on your strong financial profile."
+                "ai_explanation": "Congratulations! Your loan has been approved based on your strong financial profile.",
+                "risk_reason": "Healthy DTI ratio: 17.77%"
             }
         }
 
@@ -142,6 +167,34 @@ class LoanStatusUpdate(BaseModel):
     remarks: Optional[str] = Field(None, description="Admin remarks")
 
 
+class RiskAnalysisRequest(BaseModel):
+    """Schema for admin risk analysis tool."""
+    age: int = Field(..., ge=18, le=100, description="Customer age")
+    annual_income: float = Field(..., gt=0, description="Annual income in INR")
+    employment_years: int = Field(..., ge=0, description="Years of employment")
+    existing_loan_amount: float = Field(default=0, ge=0, description="Existing loan amount")
+    monthly_expenses: float = Field(..., ge=0, description="Monthly expenses")
+    loan_amount_requested: float = Field(..., gt=0, description="Requested loan amount")
+    loan_tenure_months: int = Field(..., ge=6, le=240, description="Loan tenure in months")
+    customer_score: int = Field(..., ge=0, le=900, description="Customer credit score")
+    has_expense_mismatch: bool = Field(default=False, description="Fraud flag for expense mismatch")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "age": 30,
+                "annual_income": 600000,
+                "employment_years": 4,
+                "existing_loan_amount": 50000,
+                "monthly_expenses": 25000,
+                "loan_amount_requested": 200000,
+                "loan_tenure_months": 36,
+                "customer_score": 650,
+                "has_expense_mismatch": False
+            }
+        }
+
+
 # ============ AI Agent Schemas ============
 class ChatRequest(BaseModel):
     """Schema for AI Agent chat request."""
@@ -165,5 +218,49 @@ class ChatResponse(BaseModel):
             "example": {
                 "response": "Your loan of ₹100,000 has been approved! Your monthly EMI is ₹8,884.88.",
                 "suggested_action": "Visit our branch to complete the documentation."
+            }
+        }
+
+
+# ============ Grievance Schemas ============
+class GrievanceCreate(BaseModel):
+    """Schema for creating a new grievance/support ticket."""
+    grievance_type: str = Field(..., description="Type: rejection_query, delay, other")
+    subject: str = Field(..., min_length=3, max_length=200, description="Subject of the grievance")
+    description: str = Field(..., min_length=10, max_length=2000, description="Detailed description")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "grievance_type": "rejection_query",
+                "subject": "Why was my loan rejected?",
+                "description": "I applied for a loan of 50000 but it was rejected. I need an explanation."
+            }
+        }
+
+
+class GrievanceResponse(BaseModel):
+    """Schema for grievance response with all fields."""
+    id: str = Field(..., description="Grievance ID")
+    user_id: str = Field(..., description="User who submitted")
+    grievance_type: str = Field(..., description="Type of grievance")
+    subject: str = Field(..., description="Subject")
+    description: str = Field(..., description="Description")
+    status: str = Field(..., description="Status: open, in_progress, resolved")
+    admin_response: Optional[str] = Field(None, description="Admin reply")
+    created_at: str = Field(..., description="Creation timestamp")
+    resolved_at: Optional[str] = Field(None, description="Resolution timestamp")
+
+
+class GrievanceReply(BaseModel):
+    """Schema for admin to reply to a grievance."""
+    status: str = Field(..., description="New status: in_progress, resolved")
+    admin_response: str = Field(..., min_length=5, max_length=2000, description="Admin reply message")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "resolved",
+                "admin_response": "Your loan was rejected due to high DTI ratio. We recommend reducing existing debts."
             }
         }

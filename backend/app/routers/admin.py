@@ -6,7 +6,7 @@ Handles administrative operations with role-based access control.
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Optional
 from app.config import supabase_client
-from app.schemas import LoanStatusUpdate
+from app.schemas import LoanStatusUpdate, RiskAnalysisRequest
 from app.utils.security import get_current_user, CurrentUser
 from app.services import notification, audit
 
@@ -111,7 +111,7 @@ async def get_all_loans(admin: CurrentUser = Depends(verify_admin)):
     """
     Get all loan applications for admin review.
     
-    Returns loans ordered by newest first.
+    Returns loans ordered by newest first with user info.
     Requires admin role.
     """
     if not supabase_client:
@@ -121,11 +121,51 @@ async def get_all_loans(admin: CurrentUser = Depends(verify_admin)):
         )
 
     try:
+        # Fetch all loans
         response = supabase_client.table("loans").select("*").order(
             "created_at", desc=True
         ).execute()
         
-        return {"loans": response.data or [], "total": len(response.data or [])}
+        loans = response.data or []
+        
+        # Enrich loans with user info and derived fields
+        enriched_loans = []
+        for loan in loans:
+            # Get user info from profiles table
+            user_id = loan.get("user_id")
+            if user_id:
+                try:
+                    profile_response = supabase_client.table("profiles").select(
+                        "full_name, email"
+                    ).eq("id", user_id).limit(1).execute()
+                    
+                    if profile_response.data:
+                        profile = profile_response.data[0]
+                        loan["user_name"] = profile.get("full_name", "N/A")
+                        loan["user_email"] = profile.get("email", "N/A")
+                    else:
+                        loan["user_name"] = "Unknown"
+                        loan["user_email"] = "N/A"
+                except:
+                    loan["user_name"] = "Unknown"
+                    loan["user_email"] = "N/A"
+            else:
+                loan["user_name"] = "Unknown"
+                loan["user_email"] = "N/A"
+            
+            # Derive risk_category from risk_score if not present
+            if not loan.get("risk_category") and loan.get("risk_score") is not None:
+                score = loan.get("risk_score", 0)
+                if score <= 30:
+                    loan["risk_category"] = "LOW"
+                elif score <= 60:
+                    loan["risk_category"] = "MEDIUM"
+                else:
+                    loan["risk_category"] = "HIGH"
+            
+            enriched_loans.append(loan)
+        
+        return {"loans": enriched_loans, "total": len(enriched_loans)}
         
     except Exception as e:
         raise HTTPException(
@@ -328,4 +368,139 @@ async def update_loan_status_legacy(update: LoanStatusUpdate):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+
+
+@router.post("/risk-analysis")
+async def analyze_risk(request: RiskAnalysisRequest, admin: CurrentUser = Depends(verify_admin)):
+    """
+    Perform risk analysis on customer data.
+    
+    Calculates risk score based on multiple factors including:
+    - Age, income, employment stability
+    - Debt-to-income ratio
+    - Customer credit score
+    - Loan amount vs income ratio
+    
+    Returns detailed risk assessment with recommendation.
+    Requires admin role.
+    """
+    try:
+        # Calculate monthly income
+        monthly_income = request.annual_income / 12
+        
+        # Calculate EMI (12% annual interest rate)
+        rate = 0.12 / 12
+        months = request.loan_tenure_months
+        principal = request.loan_amount_requested
+        emi = (principal * rate * pow(1 + rate, months)) / (pow(1 + rate, months) - 1)
+        
+        # EMI to Income Ratio
+        emi_to_income = (emi / monthly_income) * 100
+        
+        # Debt to Income Ratio (including existing loans)
+        total_monthly_debt = emi + (request.existing_loan_amount / 12)
+        debt_to_income = (total_monthly_debt / monthly_income) * 100
+        
+        # Initialize risk score (0-100, lower is better)
+        risk_score = 0
+        risk_factors = []
+        
+        # Age factor (18-25 higher risk, 26-55 optimal, 56+ slightly higher)
+        if request.age < 25:
+            risk_score += 10
+            risk_factors.append("Young age (higher risk profile)")
+        elif request.age > 55:
+            risk_score += 8
+            risk_factors.append("Age above 55 years")
+        
+        # Employment stability
+        if request.employment_years < 1:
+            risk_score += 20
+            risk_factors.append("Less than 1 year employment")
+        elif request.employment_years < 3:
+            risk_score += 10
+            risk_factors.append("Less than 3 years employment")
+        
+        # Customer score factor
+        if request.customer_score < 300:
+            risk_score += 35
+            risk_factors.append("Very low customer score (< 300)")
+        elif request.customer_score < 500:
+            risk_score += 25
+            risk_factors.append("Low customer score (< 500)")
+        elif request.customer_score < 650:
+            risk_score += 15
+            risk_factors.append("Below average customer score (< 650)")
+        elif request.customer_score < 750:
+            risk_score += 5
+            risk_factors.append("Average customer score")
+        
+        # EMI to Income ratio
+        if emi_to_income > 60:
+            risk_score += 30
+            risk_factors.append(f"EMI to income ratio too high ({emi_to_income:.1f}%)")
+        elif emi_to_income > 50:
+            risk_score += 20
+            risk_factors.append(f"High EMI to income ratio ({emi_to_income:.1f}%)")
+        elif emi_to_income > 40:
+            risk_score += 10
+            risk_factors.append(f"Moderate EMI to income ratio ({emi_to_income:.1f}%)")
+        
+        # Loan amount vs annual income
+        loan_to_income = request.loan_amount_requested / request.annual_income
+        if loan_to_income > 5:
+            risk_score += 25
+            risk_factors.append("Loan amount > 5x annual income")
+        elif loan_to_income > 3:
+            risk_score += 15
+            risk_factors.append("Loan amount > 3x annual income")
+        elif loan_to_income > 2:
+            risk_score += 5
+            risk_factors.append("Loan amount > 2x annual income")
+        
+        # Expense mismatch (fraud indicator)
+        if request.has_expense_mismatch:
+            risk_score += 20
+            risk_factors.append("⚠️ Expense mismatch detected (potential fraud)")
+        
+        # Cap risk score at 100
+        risk_score = min(risk_score, 100)
+        
+        # Determine risk category and decision
+        if risk_score <= 25:
+            risk_category = "LOW"
+            decision = "AUTO_APPROVE"
+            recommendation = "Low risk customer. Recommend immediate approval."
+        elif risk_score <= 50:
+            risk_category = "MEDIUM"
+            decision = "MANUAL_REVIEW"
+            recommendation = "Moderate risk. Manual verification recommended before approval."
+        else:
+            risk_category = "HIGH"
+            decision = "AUTO_REJECT"
+            recommendation = "High risk profile. Consider rejection or request additional documentation."
+        
+        # Calculate max recommended loan based on income
+        disposable_income = monthly_income - request.monthly_expenses
+        max_emi_affordable = disposable_income * 0.4  # 40% of disposable income
+        max_loan = (max_emi_affordable * (pow(1 + rate, months) - 1)) / (rate * pow(1 + rate, months))
+        
+        return {
+            "risk_score": risk_score,
+            "risk_percentage": risk_score,
+            "risk_category": risk_category,
+            "decision": decision,
+            "recommendation": recommendation,
+            "monthly_emi": round(emi, 2),
+            "emi_to_income_ratio": round(emi_to_income, 2),
+            "debt_to_income_ratio": round(debt_to_income, 2),
+            "max_recommended_loan": round(max(max_loan, 0), 2),
+            "risk_factors": risk_factors if risk_factors else ["No significant risk factors identified"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Risk analysis failed: {str(e)}"
         )

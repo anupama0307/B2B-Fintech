@@ -256,6 +256,22 @@ async def generate_bank_chat_response(
     Returns:
         Dictionary with 'response' and optional 'suggested_action'
     """
+    # SECURITY: Sanitize user input to prevent prompt injection
+    # Remove common injection patterns
+    dangerous_patterns = [
+        "ignore previous", "ignore above", "disregard", "forget",
+        "new instructions", "system prompt", "admin mode", "sudo",
+        "pretend you are", "act as if", "you are now"
+    ]
+    sanitized_query = user_query
+    for pattern in dangerous_patterns:
+        if pattern.lower() in user_query.lower():
+            sanitized_query = "[Query filtered for security]"
+            break
+    
+    # Limit query length to prevent token exhaustion
+    sanitized_query = sanitized_query[:500]
+    
     if not gemini_model:
         return {
             "response": f"Hello {user_name}, I'm currently unable to process your request. Please try again later or contact our support team.",
@@ -292,7 +308,7 @@ GUIDELINES:
 - Never reveal internal risk scores directly, use terms like "your profile looks strong" or "there are some concerns"
 - Suggest logical next steps when appropriate
 
-USER QUERY: {user_query}
+USER QUERY: {sanitized_query}
 
 Respond in a conversational manner. If there's a clear next action the user should take, mention it briefly."""
 
@@ -323,107 +339,47 @@ Respond in a conversational manner. If there's a clear next action the user shou
         }
 
 
-async def generate_financial_advice(summary: str) -> str:
+# ============ LLM Service Class (for unified import) ============
+class LLMService:
     """
-    Generate punchy, friendly financial advice based on a spending summary.
+    Unified LLM service class that wraps all LLM functions.
+    Allows import as: from app.services.llm import llm_service
     """
-    if not gemini_model:
-        return "Keep an eye on your spending to improve your financial health!"
-
-    try:
-        prompt = f"""
-        Analyze this user's spending summary: {summary}
-        
-        Give one short, punchy, friendly piece of financial advice (max 2 sentences).
-        Address the user directly. Be encouraging.
-        """
-        response = gemini_model.generate_content(prompt)
-        return response.text.strip()
-
-    except Exception as e:
-        print(f"Error generating advice: {e}")
-        return "Keep an eye on your spending to improve your financial health!"
-
-
-async def extract_id_details(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
-    """
-    Extract details from an ID card image using Gemini Vision AI.
     
-    Supports: PAN Card, Aadhaar Card, Driver's License, Passport, Voter ID.
+    def __init__(self):
+        self.model = gemini_model
     
-    Args:
-        image_bytes: Raw image bytes of the ID card
-        mime_type: MIME type of the image (default: image/jpeg)
-        
-    Returns:
-        Dictionary with extracted fields:
-        - full_name: Name on the ID card
-        - date_of_birth: DOB in YYYY-MM-DD format
-        - id_number: ID/document number
-        - document_type: Type of ID (PAN, Aadhaar, Driver's License, etc.)
-        - confidence: Extraction confidence (high/medium/low)
-        
-    Raises:
-        ValueError: If extraction fails or image is unreadable
-    """
-    if not gemini_model:
-        raise ValueError("Gemini AI model not initialized. Check GEMINI_API_KEY.")
+    async def generate_loan_summary(self, amount: float, tenure_months: int, risk_score: float, risk_status: str) -> str:
+        return await generate_loan_summary(amount, tenure_months, risk_score, risk_status)
     
-    try:
-        # Prepare image for Gemini Vision
-        image_part = {
-            "mime_type": mime_type,
-            "data": image_bytes
-        }
-        
-        # Structured prompt for ID extraction
-        prompt = """Analyze this ID card image. Extract the following details in strict JSON format:
-{
-    "full_name": "Full name as printed on the ID",
-    "date_of_birth": "YYYY-MM-DD",
-    "id_number": "ID/Document number",
-    "document_type": "PAN Card/Aadhaar Card/Driver's License/Passport/Voter ID/Other",
-    "confidence": "high/medium/low"
-}
+    async def generate_risk_explanation(self, score: float, status: str, reasons: list) -> str:
+        return await generate_risk_explanation(score, status, reasons)
+    
+    async def generate_voice_response(self, context: str, user_name: Optional[str] = None) -> str:
+        return await generate_voice_response(context, user_name)
+    
+    async def analyze_spending_patterns(self, transactions: list) -> dict:
+        return await analyze_spending_patterns(transactions)
+    
+    async def generate_rejection_reason(self, reasons: list) -> str:
+        return await generate_rejection_reason(reasons)
+    
+    async def generate_approval_message(self, amount: float, emi: float, tenure_months: int) -> str:
+        return await generate_approval_message(amount, emi, tenure_months)
+    
+    async def generate_bank_chat_response(self, user_name: str, loan_details: dict, user_query: str) -> dict:
+        return await generate_bank_chat_response(user_name, loan_details, user_query)
+    
+    async def generate_content(self, prompt: str) -> str:
+        """Generic content generation using Gemini."""
+        if not self.model:
+            return "AI service unavailable"
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            return f"Error generating content: {str(e)}"
 
-Rules:
-- Extract the name EXACTLY as printed on the ID card.
-- For date_of_birth, convert to YYYY-MM-DD format. If only year is visible, use YYYY-01-01.
-- For id_number, extract the primary identification number (PAN number, Aadhaar number, DL number, etc.)
-- If a field is not visible or unreadable, use null.
-- Set confidence based on image clarity: high (clearly readable), medium (partially readable), low (barely visible).
-- Return ONLY the JSON object, no additional text."""
-        
-        # Generate response using Gemini Vision
-        response = gemini_model.generate_content([prompt, image_part])
-        
-        if not response or not response.text:
-            raise ValueError("Empty response from Gemini Vision")
-        
-        response_text = response.text.strip()
-        
-        # Clean up response if wrapped in code blocks
-        if response_text.startswith("```"):
-            response_text = response_text.split("```")[1]
-            if response_text.startswith("json"):
-                response_text = response_text[4:]
-            response_text = response_text.strip()
-        
-        import json
-        parsed_data = json.loads(response_text)
-        
-        # Validate and structure the response
-        result = {
-            "full_name": parsed_data.get("full_name"),
-            "date_of_birth": parsed_data.get("date_of_birth"),
-            "id_number": parsed_data.get("id_number"),
-            "document_type": parsed_data.get("document_type", "Unknown"),
-            "confidence": parsed_data.get("confidence", "medium")
-        }
-        
-        return result
-        
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to parse Gemini response: {e}")
-    except Exception as e:
-        raise ValueError(f"Error extracting ID details: {e}")
+
+# Create singleton instance for import
+llm_service = LLMService()
