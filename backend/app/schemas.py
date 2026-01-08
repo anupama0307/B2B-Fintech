@@ -2,8 +2,9 @@
 Pydantic schemas for data validation.
 """
 
+import re
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ============ User Schemas ============
@@ -14,13 +15,35 @@ class UserSignup(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15, description="User's phone number")
     password: str = Field(..., min_length=8, description="User's password")
 
+    @field_validator('password')
+    @classmethod
+    def validate_password_strength(cls, v):
+        """SECURITY: Enforce password complexity."""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        return v
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        """Validate phone number format."""
+        if not re.match(r'^[0-9+\-\s()]+$', v):
+            raise ValueError('Invalid phone number format')
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
                 "email": "user@example.com",
                 "full_name": "John Doe",
                 "phone": "1234567890",
-                "password": "securepassword123"
+                "password": "SecurePass123"
             }
         }
 

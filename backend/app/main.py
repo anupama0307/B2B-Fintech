@@ -32,13 +32,20 @@ app.state.limiter = limiter
 # Add rate limit exceeded exception handler
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configure CORS middleware
+# Configure CORS middleware - SECURITY: Restrict to known origins only
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows ALL origins (localhost:3000, localhost:5173, etc.)
+    allow_origins=[
+        "http://localhost:3000",      # React dev server
+        "http://localhost:5173",      # Vite dev server
+        "http://127.0.0.1:3000",
+        # Add production domains here:
+        # "https://riskoff.vercel.app",
+        # "https://yourdomain.com",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE)
-    allow_headers=["*"],  # Allows all headers (Authorization, etc.)
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Zudu-Key"],
 )
 
 

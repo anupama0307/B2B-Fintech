@@ -256,6 +256,22 @@ async def generate_bank_chat_response(
     Returns:
         Dictionary with 'response' and optional 'suggested_action'
     """
+    # SECURITY: Sanitize user input to prevent prompt injection
+    # Remove common injection patterns
+    dangerous_patterns = [
+        "ignore previous", "ignore above", "disregard", "forget",
+        "new instructions", "system prompt", "admin mode", "sudo",
+        "pretend you are", "act as if", "you are now"
+    ]
+    sanitized_query = user_query
+    for pattern in dangerous_patterns:
+        if pattern.lower() in user_query.lower():
+            sanitized_query = "[Query filtered for security]"
+            break
+    
+    # Limit query length to prevent token exhaustion
+    sanitized_query = sanitized_query[:500]
+    
     if not gemini_model:
         return {
             "response": f"Hello {user_name}, I'm currently unable to process your request. Please try again later or contact our support team.",
@@ -292,7 +308,7 @@ GUIDELINES:
 - Never reveal internal risk scores directly, use terms like "your profile looks strong" or "there are some concerns"
 - Suggest logical next steps when appropriate
 
-USER QUERY: {user_query}
+USER QUERY: {sanitized_query}
 
 Respond in a conversational manner. If there's a clear next action the user should take, mention it briefly."""
 

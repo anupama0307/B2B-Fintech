@@ -1,16 +1,22 @@
 """
 Authentication router for RISKOFF API.
 Handles user signup, login, and session management.
+With rate limiting for security.
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.config import supabase_client
 from app.schemas import UserSignup, UserLogin
 from app.utils.security import get_current_user, CurrentUser
+
+# Rate limiter for auth endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/auth",
@@ -31,7 +37,8 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(user: UserSignup) -> AuthResponse:
+@limiter.limit("5/minute")  # SECURITY: Limit signup attempts
+async def signup(request: Request, user: UserSignup) -> AuthResponse:
     """
     Register a new user with Supabase Auth.
     
@@ -116,7 +123,8 @@ async def signup(user: UserSignup) -> AuthResponse:
 
 
 @router.post("/login")
-async def login(user: UserLogin) -> AuthResponse:
+@limiter.limit("10/minute")  # SECURITY: Limit login attempts to prevent brute force
+async def login(request: Request, user: UserLogin) -> AuthResponse:
     """
     Authenticate user and return session tokens.
     

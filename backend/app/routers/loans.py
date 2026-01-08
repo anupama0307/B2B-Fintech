@@ -1,15 +1,21 @@
 """
 Loans router for RISKOFF API.
 Handles loan applications and risk assessment with authentication.
+With rate limiting for security.
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.config import supabase_client
 from app.schemas import LoanCreate, LoanResponse, LoanApplication, RiskResult
 from app.services.risk_engine import calculate_risk_score
 from app.services import audit
 from app.services.llm import generate_rejection_reason, generate_approval_message
-from app.utils.security import get_current_user, CurrentUser
+from app.utils.security import get_current_user, CurrentUser, require_admin
+
+# Rate limiter for loan endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/loans",
@@ -18,7 +24,9 @@ router = APIRouter(
 
 
 @router.post("/apply", response_model=LoanResponse)
+@limiter.limit("3/minute")  # SECURITY: Prevent spam applications
 async def apply_for_loan(
+    request: Request,
     application: LoanCreate,
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -147,9 +155,13 @@ async def get_my_loans(current_user: CurrentUser = Depends(get_current_user)):
 
 
 @router.get("/")
-async def get_all_loans():
+async def get_all_loans(
+    current_user: CurrentUser = Depends(require_admin)  # SECURITY: Admin only
+):
     """
     Get all loan applications (admin view).
+    
+    SECURITY: Requires admin role.
     """
     if not supabase_client:
         raise HTTPException(
