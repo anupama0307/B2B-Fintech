@@ -349,14 +349,24 @@ async def transcribe_audio(file_content: bytes, mime_type: str) -> str:
     Raises:
         ValueError: If transcription fails
     """
+    import base64
+    
     if not gemini_model:
         raise ValueError("Gemini AI model not initialized. Check GEMINI_API_KEY.")
     
+    if len(file_content) == 0:
+        raise ValueError("Audio file is empty")
+    
     try:
-        # Prepare the audio for Gemini
+        # Encode audio to base64 for Gemini
+        audio_base64 = base64.b64encode(file_content).decode('utf-8')
+        
+        # Prepare the audio part for Gemini
         audio_part = {
-            "mime_type": mime_type,
-            "data": file_content
+            "inline_data": {
+                "mime_type": mime_type,
+                "data": audio_base64
+            }
         }
         
         # Prompt for transcription
@@ -366,11 +376,19 @@ async def transcribe_audio(file_content: bytes, mime_type: str) -> str:
         response = gemini_model.generate_content([prompt, audio_part])
         
         if not response or not response.text:
-            raise ValueError("Empty response from Gemini")
+            raise ValueError("Empty response from Gemini - audio may be too short or unclear")
         
         transcribed_text = response.text.strip()
+        
+        if not transcribed_text:
+            raise ValueError("Transcription returned empty text")
         
         return transcribed_text
         
     except Exception as e:
-        raise ValueError(f"Error transcribing audio: {e}")
+        error_msg = str(e)
+        print(f"[TRANSCRIBE ERROR] {error_msg}")  # Log to console
+        if "unsupported" in error_msg.lower() or "invalid" in error_msg.lower():
+            raise ValueError(f"Audio format not supported by Gemini. Try WAV or MP3.")
+        raise ValueError(f"Error transcribing audio: {error_msg}")
+
