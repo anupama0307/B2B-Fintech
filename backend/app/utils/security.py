@@ -30,6 +30,7 @@ async def get_current_user(
     Dependency to get the current authenticated user.
     
     Verifies the JWT token with Supabase and returns user details.
+    SECURITY: Role is fetched from profiles table, not JWT metadata.
     
     Args:
         token: JWT access token from Authorization header
@@ -67,12 +68,28 @@ async def get_current_user(
         user = user_response.user
         user_metadata = user.user_metadata or {}
         
+        # SECURITY: Fetch role from profiles table, not from JWT metadata
+        # This prevents users from spoofing admin role
+        role = "user"  # Default role
+        try:
+            profile_response = supabase_client.table("profiles").select("role").eq(
+                "id", user.id
+            ).execute()
+            if profile_response.data and profile_response.data[0].get("role"):
+                role = profile_response.data[0].get("role")
+        except Exception as profile_error:
+            # SECURITY: If profiles table query fails, default to "user" role
+            # NEVER fall back to JWT metadata as it can be spoofed
+            import logging
+            logging.warning(f"Could not fetch user role from profiles: {profile_error}")
+            role = "user"  # Always default to lowest privilege
+        
         return CurrentUser(
             id=user.id,
             email=user.email,
             full_name=user_metadata.get("full_name"),
             phone=user_metadata.get("phone"),
-            role=user_metadata.get("role", "user")
+            role=role
         )
         
     except HTTPException:

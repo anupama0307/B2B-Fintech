@@ -1,11 +1,20 @@
 """
 Upload router for RISKOFF API.
-Handles receipt image and bank statement uploads.
+Handles receipt image and bank statement uploads with database persistence.
+With rate limiting for security.
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, HTTPException, UploadFile, File, status, Depends, Request
+from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from app.config import supabase_client
 from app.schemas import ReceiptData
-from app.services.parser import parse_receipt_image, parse_bank_statement
+from app.services.parser import parse_bank_statement_csv, analyze_receipt_image, transcribe_audio
+from app.utils.security import get_current_user, CurrentUser, get_current_user_optional
+
+# Rate limiter for upload endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/upload",
@@ -13,28 +22,52 @@ router = APIRouter(
 )
 
 
-@router.post("/receipt", response_model=ReceiptData)
-async def upload_receipt(file: UploadFile = File(...)):
+@router.post("/receipt")
+async def upload_receipt(
+    file: UploadFile = File(...),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional)
+):
     """
-    Upload a receipt image and extract merchant/amount using Gemini AI.
+    Upload a receipt image and extract transaction details using Gemini Vision AI.
+    
+    Returns the extracted data for user verification before saving.
+    Authentication is optional - logged-in users get user_id attached.
     """
     # Validate file type
-    allowed_types = ["image/jpeg", "image/png", "image/webp"]
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
     if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid file type. Allowed: {allowed_types}"
         )
 
+    # Validate file size (max 10MB)
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds 10MB limit"
+        )
+
     try:
-        # Read file content
-        file_content = await file.read()
+        # Parse receipt using Gemini Vision AI
+        receipt_data = await analyze_receipt_image(file_content, file.content_type)
 
-        # Parse receipt using Gemini AI
-        receipt_data = await parse_receipt_image(file_content, file.content_type)
+        # Add user_id if authenticated
+        if current_user:
+            receipt_data["user_id"] = current_user.id
 
-        return receipt_data
+        return {
+            "status": "success",
+            "message": "Receipt analyzed successfully. Please verify the extracted data.",
+            "data": receipt_data
+        }
 
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -43,31 +76,401 @@ async def upload_receipt(file: UploadFile = File(...)):
 
 
 @router.post("/bank-statement")
-async def upload_bank_statement(file: UploadFile = File(...)):
+async def upload_bank_statement(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user)
+):
     """
-    Upload a bank statement CSV and parse transactions.
+    Upload a bank statement CSV, parse transactions, and save to database.
+    
+    Requires authentication. Transactions are linked to the user's account.
+    Includes identity verification - the file must contain the user's name.
     """
+    if not supabase_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable"
+        )
+
     # Validate file type
-    if not file.filename.endswith(".csv"):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only CSV files are allowed"
+            detail="Only CSV files are allowed. Please upload a .csv file."
         )
 
     try:
         # Read file content
         file_content = await file.read()
 
-        # Parse bank statement
-        transactions = parse_bank_statement(file_content)
+        # Validate file is not empty
+        if len(file_content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded file is empty"
+            )
 
-        return {
-            "message": "Bank statement parsed successfully",
-            "transactions": transactions
+        # Get user's full name for identity verification
+        user_full_name = current_user.full_name
+        
+        # Try to get name from profiles table if not in token
+        if not user_full_name and supabase_client:
+            try:
+                profile_response = supabase_client.table("profiles").select("full_name").eq(
+                    "id", current_user.id
+                ).limit(1).execute()
+                if profile_response.data and profile_response.data[0].get("full_name"):
+                    user_full_name = profile_response.data[0]["full_name"]
+            except:
+                pass  # Continue without profile lookup
+
+        # Step 1: Save bank statement record
+        statement_record = {
+            "user_id": current_user.id,
+            "file_name": file.filename,
+            "file_url": f"uploads/statements/{current_user.id}/{file.filename}",  # Simulated path
+            "status": "processing"
         }
 
+        try:
+            statement_response = supabase_client.table("bank_statements").insert(statement_record).execute()
+            statement_id = statement_response.data[0]["id"] if statement_response.data else None
+        except Exception as e:
+            # If bank_statements table doesn't exist, continue without it
+            statement_id = None
+
+        # Step 2: Parse the bank statement CSV with identity verification
+        try:
+            transactions = parse_bank_statement_csv(file_content, user_full_name)
+        except ValueError as e:
+            error_message = str(e)
+            if "Identity Mismatch" in error_message:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Identity Verification Failed: The uploaded file does not match your account."
+                )
+            raise
+
+        if not transactions:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No transactions found in the CSV file"
+            )
+
+        # Step 3: Prepare transactions for database insert
+        transactions_to_insert = []
+        for txn in transactions:
+            db_transaction = {
+                "user_id": current_user.id,
+                "description": txn.get("description"),
+                "amount": txn.get("amount"),
+                "category": txn.get("category", "Misc"),
+                "transaction_date": txn.get("date"),
+                "transaction_type": txn.get("type", "Debit")
+            }
+            # Only include if we have at least description or amount
+            if db_transaction["description"] or db_transaction["amount"]:
+                transactions_to_insert.append(db_transaction)
+
+        # Step 4: Bulk insert transactions
+        inserted_count = 0
+        if transactions_to_insert:
+            try:
+                insert_response = supabase_client.table("transactions").insert(transactions_to_insert).execute()
+                inserted_count = len(insert_response.data) if insert_response.data else 0
+            except Exception as e:
+                # Log error but don't fail - return parsed data
+                print(f"⚠️ Database insert error: {e}")
+
+        # Step 5: Update statement status to completed
+        if statement_id:
+            try:
+                supabase_client.table("bank_statements").update({
+                    "status": "completed",
+                    "transactions_count": inserted_count
+                }).eq("id", statement_id).execute()
+            except:
+                pass
+
+        return {
+            "status": "success",
+            "message": "Bank statement processed successfully",
+            "transactions_parsed": len(transactions),
+            "transactions_saved": inserted_count,
+            "statement_id": statement_id,
+            "transactions": transactions[:10]  # Return first 10 for preview
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing bank statement: {str(e)}"
+        )
+
+
+@router.post("/receipt/save")
+async def save_receipt_transaction(
+    merchant_name: str,
+    total_amount: float,
+    transaction_date: Optional[str] = None,
+    category: str = "Other",
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Save a verified receipt transaction to the database.
+    
+    This is called after the user verifies the extracted receipt data.
+    """
+    if not supabase_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable"
+        )
+
+    try:
+        transaction_data = {
+            "user_id": current_user.id,
+            "description": merchant_name,
+            "amount": -abs(total_amount),  # Negative for expense
+            "category": category,
+            "transaction_date": transaction_date,
+            "transaction_type": "Debit"
+        }
+
+        response = supabase_client.table("transactions").insert(transaction_data).execute()
+
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to save transaction"
+            )
+
+        return {
+            "status": "success",
+            "message": "Receipt transaction saved successfully",
+            "transaction": response.data[0]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error saving transaction: {str(e)}"
+        )
+
+
+@router.post("/audio/transcribe")
+async def transcribe_audio_file(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Transcribe an audio file to text using Gemini AI.
+    
+    Supports voice notes that can be fed into the AI Agent.
+    Useful for queries like "I need a loan for 5 lakhs".
+    
+    Requires authentication.
+    """
+    # Allowed audio MIME types (base types, will match with codec suffixes too)
+    allowed_base_types = [
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/wav",
+        "audio/wave",
+        "audio/x-wav",
+        "audio/x-m4a",
+        "audio/m4a",
+        "audio/mp4",
+        "audio/ogg",
+        "audio/webm"
+    ]
+    
+    # Extract base MIME type (handles 'audio/webm;codecs=opus' -> 'audio/webm')
+    content_type = file.content_type or "audio/webm"
+    base_content_type = content_type.split(';')[0].strip()
+    
+    if base_content_type not in allowed_base_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type '{content_type}'. Allowed: MP3, WAV, M4A, OGG, WebM"
+        )
+    
+    # Validate file size (max 25MB for audio)
+    file_content = await file.read()
+    max_size = 25 * 1024 * 1024  # 25MB
+    
+    if len(file_content) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds 25MB limit"
+        )
+    
+    if len(file_content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded file is empty"
+        )
+    
+    try:
+        # Transcribe audio using Gemini (use base content type for compatibility)
+        transcription = await transcribe_audio(file_content, base_content_type)
+        
+        return {
+            "status": "success",
+            "transcription": transcription,
+            "file_name": file.filename,
+            "file_size_bytes": len(file_content),
+            "user_id": current_user.id
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error transcribing audio: {str(e)}"
+        )
+
+
+@router.post("/kyc")
+@limiter.limit("5/minute")  # SECURITY: Prevent API quota exhaustion
+async def verify_kyc(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Upload an ID card image for KYC verification using Gemini Vision AI.
+    
+    Supported ID types: PAN Card, Aadhaar Card, Driver's License, Passport, Voter ID.
+    
+    Process:
+    1. Extract details from ID card image using Gemini Vision
+    2. Compare extracted name with user's registered name
+    3. If names match, mark profile as verified
+    
+    Requires authentication.
+    """
+    if not supabase_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable"
+        )
+    
+    # Validate file type (images only)
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: JPEG, PNG, WebP"
+        )
+    
+    # Validate file size (max 10MB)
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds 10MB limit"
+        )
+    
+    if len(file_content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded file is empty"
+        )
+    
+    try:
+        # Import the LLM function for ID extraction
+        from app.services.llm import extract_id_details
+        from app.services.parser import is_name_match
+        
+        # Step 1: Extract details from ID card using Gemini Vision
+        extracted_data = await extract_id_details(file_content, file.content_type)
+        
+        # Step 2: Get user's registered name from profile
+        user_full_name = current_user.full_name
+        
+        # Try to get name from profiles table if not in token
+        if not user_full_name:
+            try:
+                profile_response = supabase_client.table("profiles").select("full_name").eq(
+                    "id", current_user.id
+                ).limit(1).execute()
+                if profile_response.data and profile_response.data[0].get("full_name"):
+                    user_full_name = profile_response.data[0]["full_name"]
+            except:
+                pass
+        
+        # Step 3: Compare names using fuzzy matching
+        extracted_name = extracted_data.get("full_name")
+        name_matched = False
+        match_reason = "No name to compare"
+        
+        if extracted_name and user_full_name:
+            name_matched = is_name_match(extracted_name, user_full_name, threshold=0.7)
+            if name_matched:
+                match_reason = f"Name '{extracted_name}' matches registered name"
+            else:
+                match_reason = f"Name mismatch: ID shows '{extracted_name}', account has '{user_full_name}'"
+        elif not extracted_name:
+            match_reason = "Could not extract name from ID card"
+        elif not user_full_name:
+            match_reason = "No registered name found in profile"
+        
+        # Step 4: Update profile verification status if matched
+        verification_status = "pending"
+        if name_matched:
+            try:
+                supabase_client.table("profiles").update({
+                    "verified": True,
+                    "kyc_document_type": extracted_data.get("document_type"),
+                    "kyc_verified_at": "now()"
+                }).eq("id", current_user.id).execute()
+                verification_status = "verified"
+            except Exception as e:
+                # If update fails (e.g., column doesn't exist), still return success
+                # The columns might need to be added to the database
+                print(f"⚠️ Could not update verification status: {e}")
+                verification_status = "verified_locally"
+        else:
+            verification_status = "failed"
+        
+        return {
+            "status": "success",
+            "verification_result": {
+                "verified": name_matched,
+                "status": verification_status,
+                "reason": match_reason
+            },
+            "extracted_data": {
+                "full_name": extracted_data.get("full_name"),
+                "date_of_birth": extracted_data.get("date_of_birth"),
+                "id_number": extracted_data.get("id_number"),
+                "document_type": extracted_data.get("document_type"),
+                "confidence": extracted_data.get("confidence")
+            },
+            "user_id": current_user.id
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"KYC verification failed: {str(e)}"
         )

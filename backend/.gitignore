@@ -1,15 +1,14 @@
-# ===================== PYTHON =====================
 __pycache__/
 *.py[cod]
 *$py.class
-*. so
+*.so
 .Python
 venv/
 ENV/
 env/
 .venv/
-*. egg
-*. egg-info/
+*.egg
+*.egg-info/
 dist/
 build/
 eggs/
@@ -17,10 +16,10 @@ parts/
 var/
 sdist/
 develop-eggs/
-. installed.cfg
+.installed.cfg
 lib/
 lib64/
-*. manifest
+*.manifest
 *.spec
 
 # ===================== DATABASE =====================
@@ -29,20 +28,23 @@ lib64/
 *.sqlite
 riskon.db
 
-# ===================== NODE. JS =====================
+# ===================== NODE.JS =====================
 node_modules/
 npm-debug.log*
-yarn-debug. log*
+yarn-debug.log*
 yarn-error.log*
+# Note: Usually you should NOT ignore lock files (package-lock.json / yarn.lock) 
+# so your team uses the exact same versions. 
+# If you intentionally want to ignore them, keep the lines below:
 package-lock.json
 yarn.lock
 
 # ===================== BUILD =====================
 build/
 dist/
-. next/
+.next/
 out/
-*. build
+*.build
 
 # ===================== ENVIRONMENT =====================
 .env
@@ -50,33 +52,33 @@ out/
 .env.development
 .env.development.local
 .env.test
-.env.test. local
-.env. production
-.env. production.local
+.env.test.local
+.env.production
+.env.production.local
 
 # ===================== IDE =====================
 .idea/
 .vscode/
 *.swp
 *.swo
-*. sublime-workspace
-*. sublime-project
+*.sublime-workspace
+*.sublime-project
 *.code-workspace
 
 # ===================== OS =====================
 .DS_Store
-. DS_Store? 
+.DS_Store?
 ._*
-. Spotlight-V100
+.Spotlight-V100
 .Trashes
-ehthumbs. db
+ehthumbs.db
 Thumbs.db
 desktop.ini
 
 # ===================== CACHE =====================
-. cache/
-*. cache
-. eslintcache
+.cache/
+*.cache
+.eslintcache
 .parcel-cache/
 .npm/
 .yarn/
@@ -85,21 +87,21 @@ desktop.ini
 logs/
 *.log
 npm-debug.log*
-yarn-debug. log*
+yarn-debug.log*
 yarn-error.log*
 
 # ===================== TESTING =====================
 coverage/
 .coverage
 htmlcov/
-. tox/
+.tox/
 .pytest_cache/
 .nox/
 
 # ===================== MISC =====================
 *.bak
 *.tmp
-*. temp
+*.temp
 *.pid
 *.seed
 *.pid.lock

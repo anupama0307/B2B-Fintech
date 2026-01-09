@@ -13,37 +13,23 @@ export function AuthProvider({ children }) {
     
     if (token && savedUser) {
       setUser(JSON.parse(savedUser));
-      api.defaults.headers. common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-    const response = await api. post('/auth/login', { email, password });
-    return response.data;
-  };
-
-  const verifyOTP = async (email, otp) => {
-    const response = await api.post('/auth/login/verify', { email, otp });
-    const { access_token, user:  userData } = response. data;
+    // MATCH BACKEND: POST /auth/login
+    const response = await api.post('/auth/login', { email, password });
+    const { access_token, user_id, full_name, role } = response.data;
     
-    localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    api.defaults.headers. common['Authorization'] = `Bearer ${access_token}`;
-    
-    setUser(userData);
-    return userData;
-  };
+    const userData = {
+        id: user_id,
+        email,
+        full_name,
+        role: role || 'user'
+    };
 
-  const register = async (data) => {
-    const response = await api.post('/auth/register', data);
-    return response.data;
-  };
-
-  const verifyRegisterOTP = async (email, otp) => {
-    const response = await api.post('/auth/verify-otp', { email, otp });
-    const { access_token, user: userData } = response.data;
-    
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
@@ -52,15 +38,22 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
+  const register = async (data) => {
+    // MATCH BACKEND: POST /auth/signup
+    const response = await api.post('/auth/signup', data);
+    return response.data;
+  };
+
   const logout = () => {
-    localStorage. removeItem('token');
+    try { api.post('/auth/logout'); } catch (e) {}
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyOTP, register, verifyRegisterOTP, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

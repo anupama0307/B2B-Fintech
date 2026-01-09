@@ -169,3 +169,239 @@ async def analyze_spending_patterns(transactions: list) -> dict:
 
     except Exception as e:
         return {"analysis": f"Error analyzing patterns: {str(e)}", "categories": {}}
+
+
+async def generate_rejection_reason(reasons: list) -> str:
+    """
+    Generate a polite, human-readable rejection explanation using Gemini AI.
+
+    Args:
+        reasons: List of risk factors that led to rejection
+
+    Returns:
+        A polite, helpful rejection message
+    """
+    if not gemini_model:
+        return f"Unfortunately, your loan application could not be approved at this time. Factors considered: {', '.join(reasons)}. Please contact support for more information."
+
+    try:
+        reasons_text = "\n".join(f"- {r}" for r in reasons)
+        prompt = f"""Generate a polite, empathetic loan rejection message for a customer.
+
+        Rejection Reasons:
+        {reasons_text}
+
+        Requirements:
+        - Be respectful and professional
+        - Do not blame the customer
+        - Keep it under 3 sentences
+        - Suggest they can reapply after improving their financial situation
+        - Do not include any specific numbers or technical jargon"""
+
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip()
+
+    except Exception as e:
+        return f"Unfortunately, your loan application could not be approved at this time. We encourage you to review your financial profile and apply again in the future."
+
+
+async def generate_approval_message(amount: float, emi: float, tenure_months: int) -> str:
+    """
+    Generate a congratulatory approval message using Gemini AI.
+
+    Args:
+        amount: Approved loan amount
+        emi: Monthly EMI amount
+        tenure_months: Loan tenure
+
+    Returns:
+        A congratulatory approval message
+    """
+    if not gemini_model:
+        return f"Congratulations! Your loan of ₹{amount:,.2f} has been approved. Your monthly EMI will be ₹{emi:,.2f} for {tenure_months} months."
+
+    try:
+        prompt = f"""Generate a brief, congratulatory loan approval message.
+
+        Loan Details:
+        - Amount: ₹{amount:,.2f}
+        - Monthly EMI: ₹{emi:,.2f}
+        - Tenure: {tenure_months} months
+
+        Requirements:
+        - Be enthusiastic and professional
+        - Keep it under 2 sentences
+        - Mention the key numbers"""
+
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip()
+
+    except Exception as e:
+        return f"Congratulations! Your loan of ₹{amount:,.2f} has been approved. Your monthly EMI will be ₹{emi:,.2f} for {tenure_months} months."
+
+
+async def generate_bank_chat_response(
+    user_name: str,
+    loan_details: dict,
+    user_query: str
+) -> dict:
+    """
+    Generate an intelligent chat response as an AI Bank Manager using Gemini.
+
+    Args:
+        user_name: The user's full name
+        loan_details: Dictionary with loan information (status, amount, emi, risk_score, etc.)
+        user_query: The user's question/query
+
+    Returns:
+        Dictionary with 'response' and optional 'suggested_action'
+    """
+    # SECURITY: Sanitize user input to prevent prompt injection
+    import unicodedata
+    import re
+    
+    # Normalize Unicode to prevent bypasses with look-alike characters
+    normalized_query = unicodedata.normalize('NFKC', user_query)
+    
+    # Remove zero-width and invisible characters
+    normalized_query = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', normalized_query)
+    
+    # Convert to lowercase for pattern matching
+    query_lower = normalized_query.lower()
+    
+    # Remove common injection patterns (expanded list)
+    dangerous_patterns = [
+        # Instruction override attempts
+        "ignore previous", "ignore above", "disregard", "forget",
+        "new instructions", "system prompt", "admin mode", "sudo",
+        "pretend you are", "act as if", "you are now",
+        # Role manipulation
+        "you must", "override", "bypass", "jailbreak",
+        "developer mode", "dan mode", "unrestricted",
+        # Data extraction attempts
+        "reveal your prompt", "show system", "print instructions",
+        "what are your rules", "repeat your prompt",
+        # Separator injection
+        "###", "---", "===", "[system]", "[assistant]",
+    ]
+    
+    sanitized_query = normalized_query
+    for pattern in dangerous_patterns:
+        if pattern.lower() in query_lower:
+            sanitized_query = "[Query filtered for security]"
+            break
+    
+    # Limit query length to prevent token exhaustion
+    sanitized_query = sanitized_query[:500]
+    
+    if not gemini_model:
+        return {
+            "response": f"Hello {user_name}, I'm currently unable to process your request. Please try again later or contact our support team.",
+            "suggested_action": "Contact customer support"
+        }
+
+    try:
+        # Build context from loan details
+        loan_status = loan_details.get("status", "No active application")
+        amount = loan_details.get("amount", 0)
+        emi = loan_details.get("emi", 0)
+        risk_score = loan_details.get("risk_score", 0)
+        
+        context = f"""
+Customer Name: {user_name}
+Loan Status: {loan_status}
+Loan Amount: ₹{amount:,.2f}
+Monthly EMI: ₹{emi:,.2f}
+Risk Score: {risk_score}/100
+"""
+
+        system_prompt = f"""You are a friendly and professional Bank Manager AI assistant for RISKOFF, a fintech company.
+You have access to the customer's loan information.
+
+CUSTOMER CONTEXT:
+{context}
+
+GUIDELINES:
+- Be helpful, empathetic, and professional
+- Answer questions based on the customer's actual loan data
+- If the customer has no active loan, suggest they apply for one
+- Keep responses concise (2-4 sentences)
+- If asked about something you don't know, politely redirect to customer support
+- Never reveal internal risk scores directly, use terms like "your profile looks strong" or "there are some concerns"
+- Suggest logical next steps when appropriate
+
+USER QUERY: {sanitized_query}
+
+Respond in a conversational manner. If there's a clear next action the user should take, mention it briefly."""
+
+        response = gemini_model.generate_content(system_prompt)
+        response_text = response.text.strip()
+        
+        # Determine if there's a suggested action based on context
+        suggested_action = None
+        if loan_status == "No active application":
+            suggested_action = "Apply for a loan"
+        elif loan_status == "PENDING":
+            suggested_action = "Wait for approval notification"
+        elif loan_status == "APPROVED":
+            suggested_action = "Complete loan documentation"
+        elif loan_status == "REJECTED":
+            suggested_action = "Review rejection reasons and reapply"
+        
+        return {
+            "response": response_text,
+            "suggested_action": suggested_action
+        }
+
+
+    except Exception as e:
+        return {
+            "response": f"Hello {user_name}, I apologize but I'm having trouble processing your request right now. Please try again in a moment.",
+            "suggested_action": "Try again or contact support"
+        }
+
+
+# ============ LLM Service Class (for unified import) ============
+class LLMService:
+    """
+    Unified LLM service class that wraps all LLM functions.
+    Allows import as: from app.services.llm import llm_service
+    """
+    
+    def __init__(self):
+        self.model = gemini_model
+    
+    async def generate_loan_summary(self, amount: float, tenure_months: int, risk_score: float, risk_status: str) -> str:
+        return await generate_loan_summary(amount, tenure_months, risk_score, risk_status)
+    
+    async def generate_risk_explanation(self, score: float, status: str, reasons: list) -> str:
+        return await generate_risk_explanation(score, status, reasons)
+    
+    async def generate_voice_response(self, context: str, user_name: Optional[str] = None) -> str:
+        return await generate_voice_response(context, user_name)
+    
+    async def analyze_spending_patterns(self, transactions: list) -> dict:
+        return await analyze_spending_patterns(transactions)
+    
+    async def generate_rejection_reason(self, reasons: list) -> str:
+        return await generate_rejection_reason(reasons)
+    
+    async def generate_approval_message(self, amount: float, emi: float, tenure_months: int) -> str:
+        return await generate_approval_message(amount, emi, tenure_months)
+    
+    async def generate_bank_chat_response(self, user_name: str, loan_details: dict, user_query: str) -> dict:
+        return await generate_bank_chat_response(user_name, loan_details, user_query)
+    
+    async def generate_content(self, prompt: str) -> str:
+        """Generic content generation using Gemini."""
+        if not self.model:
+            return "AI service unavailable"
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            return f"Error generating content: {str(e)}"
+
+
+# Create singleton instance for import
+llm_service = LLMService()
