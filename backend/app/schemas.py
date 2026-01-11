@@ -225,16 +225,16 @@ class ChatResponse(BaseModel):
 # ============ Grievance Schemas ============
 class GrievanceCreate(BaseModel):
     """Schema for creating a new grievance/support ticket."""
-    grievance_type: str = Field(..., description="Type: rejection_query, delay, other")
     subject: str = Field(..., min_length=3, max_length=200, description="Subject of the grievance")
     description: str = Field(..., min_length=10, max_length=2000, description="Detailed description")
+    grievance_type: Optional[str] = Field(default="other", description="Type: rejection_query, delay, other")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "grievance_type": "rejection_query",
                 "subject": "Why was my loan rejected?",
-                "description": "I applied for a loan of 50000 but it was rejected. I need an explanation."
+                "description": "I applied for a loan of 50000 but it was rejected. I need an explanation.",
+                "grievance_type": "rejection_query"
             }
         }
 
@@ -243,10 +243,10 @@ class GrievanceResponse(BaseModel):
     """Schema for grievance response with all fields."""
     id: str = Field(..., description="Grievance ID")
     user_id: str = Field(..., description="User who submitted")
-    grievance_type: str = Field(..., description="Type of grievance")
     subject: str = Field(..., description="Subject")
     description: str = Field(..., description="Description")
     status: str = Field(..., description="Status: open, in_progress, resolved")
+    grievance_type: Optional[str] = Field(None, description="Type of grievance")
     admin_response: Optional[str] = Field(None, description="Admin reply")
     created_at: str = Field(..., description="Creation timestamp")
     resolved_at: Optional[str] = Field(None, description="Resolution timestamp")

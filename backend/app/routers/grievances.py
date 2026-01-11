@@ -35,10 +35,10 @@ async def submit_grievance(
         )
     
     try:
-        # Prepare grievance data
+        # Prepare grievance data - only include fields that exist in DB
+        # Note: grievance_type column may not exist in all DB schemas
         grievance_data = {
             "user_id": current_user.id,
-            "grievance_type": grievance.grievance_type,
             "subject": grievance.subject,
             "description": grievance.description,
             "status": "open"
@@ -121,12 +121,12 @@ async def get_my_grievances(
 
 # ============ Admin Endpoints ============
 
-@router.get("/admin/all", response_model=List[GrievanceResponse])
+@router.get("/admin/all")
 async def get_all_grievances(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Get all grievances from all users.
+    Get all grievances from all users with user info.
     
     Requires admin role.
     """
@@ -144,26 +144,49 @@ async def get_all_grievances(
         )
     
     try:
+        # Fetch grievances - we'll enrich with user info separately
         response = supabase_client.table("grievances").select("*").order(
             "created_at", desc=True
         ).execute()
         
         grievances = []
-        for record in response.data:
-            grievances.append(GrievanceResponse(
-                id=str(record.get("id")),
-                user_id=record.get("user_id"),
-                grievance_type=record.get("grievance_type"),
-                subject=record.get("subject"),
-                description=record.get("description"),
-                status=record.get("status"),
-                admin_response=record.get("admin_response"),
-                created_at=str(record.get("created_at")),
-                resolved_at=record.get("resolved_at")
-            ))
+        for record in response.data or []:
+            # Get user info from profiles table
+            user_name = "Unknown User"
+            user_email = ""
+            user_id = record.get("user_id")
+            
+            if user_id:
+                try:
+                    profile_response = supabase_client.table("profiles").select(
+                        "full_name, email"
+                    ).eq("id", user_id).limit(1).execute()
+                    
+                    if profile_response.data:
+                        profile = profile_response.data[0]
+                        user_name = profile.get("full_name") or "Unknown User"
+                        user_email = profile.get("email") or ""
+                except:
+                    pass  # Keep defaults
+            
+            grievances.append({
+                "id": str(record.get("id")),
+                "user_id": user_id,
+                "user_name": user_name,
+                "user_email": user_email,
+                "subject": record.get("subject"),
+                "description": record.get("description"),
+                "status": record.get("status") or "open",
+                "grievance_type": record.get("grievance_type"),
+                "admin_response": record.get("admin_response"),
+                "created_at": str(record.get("created_at")),
+                "resolved_at": record.get("resolved_at")
+            })
         
         return grievances
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -207,15 +230,11 @@ async def reply_to_grievance(
                 detail="Grievance not found"
             )
         
-        # Prepare update data
+        # Prepare update data - ONLY status and admin_response (no resolved_at)
         update_data = {
             "status": reply.status,
             "admin_response": reply.admin_response
         }
-        
-        # Add resolved_at timestamp if resolved
-        if reply.status == "resolved":
-            update_data["resolved_at"] = datetime.utcnow().isoformat()
         
         # Update grievance
         response = supabase_client.table("grievances").update(update_data).eq(

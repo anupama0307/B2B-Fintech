@@ -93,9 +93,9 @@ async def get_dashboard_stats(admin: CurrentUser = Depends(verify_admin)):
 
         return {
             "total_loans": total_loans,
-            "pending_count": pending_count,
-            "approved_count": approved_count,
-            "rejected_count": rejected_count,
+            "pending_loans": pending_count,
+            "approved_loans": approved_count,
+            "rejected_loans": rejected_count,
             "total_volume": round(total_volume, 2)
         }
 
@@ -495,13 +495,17 @@ async def analyze_risk(request: RiskAnalysisRequest, admin: CurrentUser = Depend
             "risk_score": risk_score,
             "risk_percentage": risk_score,
             "risk_category": risk_category,
+            "risk_level": risk_category.lower(),  # For frontend compatibility
             "decision": decision,
             "recommendation": recommendation,
             "monthly_emi": round(emi, 2),
             "emi_to_income_ratio": round(emi_to_income, 2),
             "debt_to_income_ratio": round(debt_to_income, 2),
             "max_recommended_loan": round(max(max_loan, 0), 2),
-            "risk_factors": risk_factors if risk_factors else ["No significant risk factors identified"]
+            "max_recommended_amount": round(max(max_loan, 0), 2),  # Alias for frontend
+            "suggested_tenure": months,  # Return the input tenure as suggested
+            "risk_factors": risk_factors if risk_factors else ["No significant risk factors identified"],
+            "factors": risk_factors if risk_factors else ["No significant risk factors identified"]  # Alias
         }
         
     except Exception as e:

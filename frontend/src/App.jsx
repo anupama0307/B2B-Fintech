@@ -20,6 +20,7 @@ import MyLoansPage from "./pages/user/MyLoansPage";
 import UserGrievancesPage from "./pages/user/GrievancesPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import VoiceAssistantPage from "./pages/user/VoiceAssistantPage";
+import DocumentScannerPage from "./pages/user/DocumentScannerPage";
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading } = useAuth();
@@ -132,6 +133,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scan"
+        element={
+          <ProtectedRoute>
+            <DocumentScannerPage />
           </ProtectedRoute>
         }
       />

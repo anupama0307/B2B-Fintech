@@ -18,6 +18,7 @@ export default function Sidebar() {
     { path: "/apply-loan", label: "Apply for Loan", icon: "💰" },
     { path: "/my-loans", label: "My Loans", icon: "📋" },
     { path: "/voice", label: "Voice Assistant", icon: "🎤" },
+    { path: "/scan", label: "Document Scanner", icon: "📄" },
     { path: "/grievances", label: "Grievances", icon: "💬" },
     { path: "/profile", label: "Profile", icon: "👤" },
   ];
