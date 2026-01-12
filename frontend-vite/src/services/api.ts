@@ -17,14 +17,22 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Handle 401 errors
+// Handle 401 errors - skip redirect for auth endpoints
 api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+            // Don't redirect on auth endpoints - let the component handle the error
+            const url = error.config?.url || '';
+            const isAuthEndpoint = url.includes('/auth/login') ||
+                url.includes('/auth/register') ||
+                url.includes('/auth/verify-otp');
+
+            if (!isAuthEndpoint) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

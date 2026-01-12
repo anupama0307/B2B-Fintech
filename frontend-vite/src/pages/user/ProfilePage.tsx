@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import {
     User, Mail, Phone, MapPin, Briefcase, Building, Clock,
     Wallet, Save, X, CheckCircle, TrendingUp, CreditCard,
-    PiggyBank, BarChart3, IndianRupee, AlertCircle, Camera
+    PiggyBank, BarChart3, IndianRupee, AlertCircle, Camera, Calendar
 } from 'lucide-react';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +18,7 @@ interface Profile {
     full_name?: string;
     email?: string;
     phone?: string;
+    date_of_birth?: string;
     city?: string;
     state?: string;
     pincode?: string;
@@ -325,6 +326,32 @@ export default function ProfilePage() {
                                             <Input name="phone" value={formData.phone || ''} onChange={handleChange} maxLength={10} placeholder="10 digits" className="h-11" />
                                         ) : (
                                             <p className="text-lg font-medium">{profile?.phone || 'Not provided'}</p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <Label className="flex items-center gap-2 text-sm font-medium mb-2">
+                                            <Calendar className="w-4 h-4" /> Date of Birth
+                                        </Label>
+                                        {editing ? (
+                                            <Input
+                                                name="date_of_birth"
+                                                type="date"
+                                                value={formData.date_of_birth || ''}
+                                                onChange={handleChange}
+                                                className="h-11"
+                                                max={new Date().toISOString().split('T')[0]}
+                                            />
+                                        ) : (
+                                            <p className="text-lg font-medium">
+                                                {profile?.date_of_birth ? (
+                                                    <>
+                                                        {new Date(profile.date_of_birth).toLocaleDateString('en-IN')}
+                                                        <span className="text-muted-foreground text-sm ml-2">
+                                                            ({Math.floor((Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} years old)
+                                                        </span>
+                                                    </>
+                                                ) : 'Not provided'}
+                                            </p>
                                         )}
                                     </div>
                                     <div>

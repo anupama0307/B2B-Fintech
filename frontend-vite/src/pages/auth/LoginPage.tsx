@@ -23,6 +23,7 @@ export default function LoginPage() {
 
     const handleCredentialsSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setError('');
         setLoading(true);
 
@@ -36,10 +37,12 @@ export default function LoginPage() {
             }
         } catch (err: any) {
             console.error('Login error:', err.response?.data);
-            setError(err.response?.data?.detail || 'Login failed. Please try again.');
-        } finally {
+            const errorMessage = err.response?.data?.detail || 'Login failed. Please check your email and password.';
+            setError(typeof errorMessage === 'string' ? errorMessage : 'Invalid email or password.');
             setLoading(false);
+            return; // Don't continue
         }
+        setLoading(false);
     };
 
     const handleOtpSubmit = async (e: React.FormEvent) => {

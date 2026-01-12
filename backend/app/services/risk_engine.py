@@ -164,11 +164,17 @@ def calculate_risk_score(
     # Ensure score is capped at 100
     score = min(100.0, score)
     
-    # Determine status: Score > 50 = REJECTED
-    if score > 50:
-        status = "REJECTED"
-    else:
+    # Determine status using 3-tier system:
+    # - Score ≤ 44: AUTO APPROVED (low risk)
+    # - Score 45-65: PENDING (manual admin review required)
+    # - Score > 65: AUTO REJECTED (high risk)
+    if score <= 44:
         status = "APPROVED"
+    elif score <= 65:
+        status = "PENDING"  # Requires manual admin review
+        reasons.append("Application requires manual review by admin")
+    else:
+        status = "REJECTED"
     
     return {
         "score": round(score, 2),

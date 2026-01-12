@@ -11,7 +11,10 @@ import {
     Mic,
     ScanLine,
     User,
-    Settings
+    Settings,
+    Building2,
+    PieChart,
+    Activity
 } from 'lucide-react';
 
 const adminLinks = [
@@ -25,6 +28,9 @@ const userLinks = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/apply-loan', label: 'Apply for Loan', icon: Wallet },
     { path: '/my-loans', label: 'My Loans', icon: ClipboardList },
+    { path: '/bank-accounts', label: 'Bank Accounts', icon: Building2 },
+    { path: '/investments', label: 'Investments', icon: PieChart },
+    { path: '/transactions', label: 'Transactions', icon: Activity },
     { path: '/voice', label: 'Voice Assistant', icon: Mic },
     { path: '/scan', label: 'Document Scanner', icon: ScanLine },
     { path: '/grievances', label: 'Grievances', icon: MessageSquare },

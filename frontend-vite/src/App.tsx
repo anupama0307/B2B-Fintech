@@ -21,6 +21,14 @@ import UserGrievancesPage from '@/pages/user/GrievancesPage';
 import ProfilePage from '@/pages/user/ProfilePage';
 import VoiceAssistantPage from '@/pages/user/VoiceAssistantPage';
 import DocumentScannerPage from '@/pages/user/DocumentScannerPage';
+import BankAccountsPage from '@/pages/user/BankAccountsPage';
+import InvestmentDashboardPage from '@/pages/user/InvestmentDashboardPage';
+import MutualFundsPage from '@/pages/user/MutualFundsPage';
+import StocksPage from '@/pages/user/StocksPage';
+import DepositsPage from '@/pages/user/DepositsPage';
+import PensionPage from '@/pages/user/PensionPage';
+import InsurancePage from '@/pages/user/InsurancePage';
+import TransactionAnalyticsPage from '@/pages/user/TransactionAnalyticsPage';
 
 function ProtectedRoute({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
     const { user, loading } = useAuth();
@@ -66,7 +74,17 @@ function AppRoutes() {
             <Route path="/voice" element={<ProtectedRoute><VoiceAssistantPage /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><DocumentScannerPage /></ProtectedRoute>} />
             <Route path="/grievances" element={<ProtectedRoute><UserGrievancesPage /></ProtectedRoute>} />
+            <Route path="/bank-accounts" element={<ProtectedRoute><BankAccountsPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+
+            {/* Investment Routes */}
+            <Route path="/investments" element={<ProtectedRoute><InvestmentDashboardPage /></ProtectedRoute>} />
+            <Route path="/investments/mutual-funds" element={<ProtectedRoute><MutualFundsPage /></ProtectedRoute>} />
+            <Route path="/investments/stocks" element={<ProtectedRoute><StocksPage /></ProtectedRoute>} />
+            <Route path="/investments/deposits" element={<ProtectedRoute><DepositsPage /></ProtectedRoute>} />
+            <Route path="/investments/pension" element={<ProtectedRoute><PensionPage /></ProtectedRoute>} />
+            <Route path="/investments/insurance" element={<ProtectedRoute><InsurancePage /></ProtectedRoute>} />
+            <Route path="/transactions" element={<ProtectedRoute><TransactionAnalyticsPage /></ProtectedRoute>} />
 
             {/* Default */}
             <Route

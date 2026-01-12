@@ -51,7 +51,11 @@ export default function DocumentScannerPage() {
             formData.append('file', file);
 
             const endpoint = scanType === 'receipt' ? '/upload/receipt' : '/upload/kyc';
-            const response = await api.post(endpoint, formData);
+            const response = await api.post(endpoint, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
 
             console.log('Scan response:', response.data);
 
