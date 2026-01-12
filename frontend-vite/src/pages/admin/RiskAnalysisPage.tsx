@@ -4,7 +4,7 @@ import Sidebar from '@/components/common/Sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
     Target,
     User,
@@ -43,15 +43,14 @@ export default function RiskAnalysisPage() {
         monthly_expenses: '',
         loan_amount_requested: '',
         loan_tenure_months: '',
-        customer_score: '',
-        has_expense_mismatch: false
+        customer_score: ''
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
+        const { name, value } = e.target;
         setFormData({
             ...formData,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: value
         });
     };
 
@@ -70,8 +69,7 @@ export default function RiskAnalysisPage() {
                 monthly_expenses: parseFloat(formData.monthly_expenses),
                 loan_amount_requested: parseFloat(formData.loan_amount_requested),
                 loan_tenure_months: parseInt(formData.loan_tenure_months),
-                customer_score: parseInt(formData.customer_score),
-                has_expense_mismatch: formData.has_expense_mismatch
+                customer_score: parseInt(formData.customer_score)
             };
 
             const response = await api.post('/admin/risk-analysis', payload);
@@ -107,7 +105,7 @@ export default function RiskAnalysisPage() {
                 <main className="flex-1 p-8">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold">Risk Analysis Tool</h1>
-                        <p className="text-lg text-muted-foreground mt-1">Analyze borrower risk profile</p>
+                        <p className="text-lg text-muted-foreground mt-1">Analyze borrower risk profile (includes age-based assessment)</p>
                     </div>
 
                     {error && (
@@ -137,6 +135,7 @@ export default function RiskAnalysisPage() {
                                                     onChange={handleChange} required min="18" max="100"
                                                     className="h-11 pl-10 text-base" placeholder="30" />
                                             </div>
+                                            <p className="text-xs text-muted-foreground mt-1">Age affects max loan tenure</p>
                                         </div>
                                         <div>
                                             <Label className="text-base">Employment Years</Label>
@@ -209,15 +208,6 @@ export default function RiskAnalysisPage() {
                                                     className="h-11 pl-10 text-base" placeholder="36" />
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <input type="checkbox" id="expense_mismatch" name="has_expense_mismatch"
-                                            checked={formData.has_expense_mismatch} onChange={handleChange}
-                                            className="w-5 h-5 rounded border-input" />
-                                        <Label htmlFor="expense_mismatch" className="text-base">
-                                            Flag: Expense Mismatch Detected
-                                        </Label>
                                     </div>
 
                                     <Button type="submit" size="lg" className="w-full h-12 text-base gap-2" disabled={loading}>

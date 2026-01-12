@@ -177,7 +177,7 @@ class RiskAnalysisRequest(BaseModel):
     loan_amount_requested: float = Field(..., gt=0, description="Requested loan amount")
     loan_tenure_months: int = Field(..., ge=6, le=240, description="Loan tenure in months")
     customer_score: int = Field(..., ge=0, le=900, description="Customer credit score")
-    has_expense_mismatch: bool = Field(default=False, description="Fraud flag for expense mismatch")
+    has_expense_mismatch: Optional[bool] = Field(default=False, description="Fraud flag (optional)")
 
     class Config:
         json_schema_extra = {
@@ -189,8 +189,7 @@ class RiskAnalysisRequest(BaseModel):
                 "monthly_expenses": 25000,
                 "loan_amount_requested": 200000,
                 "loan_tenure_months": 36,
-                "customer_score": 650,
-                "has_expense_mismatch": False
+                "customer_score": 650
             }
         }
 

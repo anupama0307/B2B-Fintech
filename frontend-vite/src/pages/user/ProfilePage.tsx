@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import {
     User, Mail, Phone, MapPin, Briefcase, Building, Clock,
     Wallet, Save, X, CheckCircle, TrendingUp, CreditCard,
-    PiggyBank, BarChart3, IndianRupee, AlertCircle
+    PiggyBank, BarChart3, IndianRupee, AlertCircle, Camera
 } from 'lucide-react';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -33,6 +33,7 @@ interface Profile {
     fixed_deposits?: number;
     existing_loans?: number;
     existing_loan_amount?: number;
+    profile_photo_url?: string;
 }
 
 interface Dashboard {
@@ -138,13 +139,56 @@ export default function ProfilePage() {
             <div className="flex">
                 <Sidebar />
                 <main className="flex-1 p-8">
-                    <div className="flex justify-between items-start mb-8">
-                        <div>
-                            <h1 className="text-3xl font-bold">My Profile</h1>
+                    {/* Profile Header with Photo */}
+                    <div className="flex items-center gap-6 mb-8">
+                        {/* Profile Photo */}
+                        <div className="relative group">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground text-3xl font-bold shadow-lg overflow-hidden">
+                                {(editing ? formData.profile_photo_url : profile?.profile_photo_url) ? (
+                                    <img
+                                        src={editing ? formData.profile_photo_url : profile?.profile_photo_url}
+                                        alt="Profile"
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span>{(editing ? formData.full_name : profile?.full_name)?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}</span>
+                                )}
+                            </div>
+                            {editing && (
+                                <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="text-center text-white">
+                                        <Camera className="w-6 h-6 mx-auto mb-1" />
+                                        <span className="text-xs">Change</span>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                // For now, show preview using FileReader
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    setFormData({ ...formData, profile_photo_url: event.target?.result as string });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            )}
+                        </div>
+
+                        {/* Title and Actions */}
+                        <div className="flex-1">
+                            <h1 className="text-3xl font-bold">{profile?.full_name || 'My Profile'}</h1>
                             <p className="text-lg text-muted-foreground mt-1">
-                                {isAdmin ? 'Administrator Account' : 'Manage your personal and financial information'}
+                                {isAdmin ? 'Administrator Account' : profile?.occupation || 'Manage your personal and financial information'}
                             </p>
                         </div>
+
+                        {/* Edit/Save Buttons */}
                         {!editing ? (
                             <Button size="lg" onClick={() => setEditing(true)} className="gap-2">
                                 <User className="w-5 h-5" /> Edit Profile

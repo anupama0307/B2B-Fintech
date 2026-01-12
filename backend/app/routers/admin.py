@@ -411,13 +411,33 @@ async def analyze_risk(request: RiskAnalysisRequest, admin: CurrentUser = Depend
         risk_score = 0
         risk_factors = []
         
-        # Age factor (18-25 higher risk, 26-55 optimal, 56+ slightly higher)
+        # ============ AGE-BASED RISK ASSESSMENT ============
+        # Retirement age assumed at 65 for loan repayment calculations
+        retirement_age = 65
+        years_to_retirement = max(0, retirement_age - request.age)
+        max_tenure_months_by_age = years_to_retirement * 12
+        
+        # Age factor (stricter for older applicants)
         if request.age < 25:
             risk_score += 10
-            risk_factors.append("Young age (higher risk profile)")
-        elif request.age > 55:
-            risk_score += 8
-            risk_factors.append("Age above 55 years")
+            risk_factors.append("Young age (limited credit history expected)")
+        elif request.age >= 60:
+            risk_score += 30
+            risk_factors.append(f"⚠️ Age {request.age}: High mortality risk - limited loan tenure recommended")
+        elif request.age >= 55:
+            risk_score += 20
+            risk_factors.append(f"Age {request.age}: Approaching retirement - shorter tenure recommended")
+        elif request.age >= 50:
+            risk_score += 10
+            risk_factors.append(f"Age {request.age}: Consider loan repayment timeline before retirement")
+        
+        # Check if loan tenure exceeds retirement timeline
+        if months > max_tenure_months_by_age and request.age >= 50:
+            risk_score += 25
+            risk_factors.append(f"⚠️ Loan tenure ({months} months) extends beyond retirement age (65)")
+        
+        # Suggested max tenure based on age
+        suggested_tenure = min(months, max(12, max_tenure_months_by_age))
         
         # Employment stability
         if request.employment_years < 1:
@@ -464,11 +484,6 @@ async def analyze_risk(request: RiskAnalysisRequest, admin: CurrentUser = Depend
             risk_score += 5
             risk_factors.append("Loan amount > 2x annual income")
         
-        # Expense mismatch (fraud indicator)
-        if request.has_expense_mismatch:
-            risk_score += 20
-            risk_factors.append("⚠️ Expense mismatch detected (potential fraud)")
-        
         # Cap risk score at 100
         risk_score = min(risk_score, 100)
         
@@ -503,7 +518,7 @@ async def analyze_risk(request: RiskAnalysisRequest, admin: CurrentUser = Depend
             "debt_to_income_ratio": round(debt_to_income, 2),
             "max_recommended_loan": round(max(max_loan, 0), 2),
             "max_recommended_amount": round(max(max_loan, 0), 2),  # Alias for frontend
-            "suggested_tenure": months,  # Return the input tenure as suggested
+            "suggested_tenure": suggested_tenure,  # Age-adjusted tenure recommendation
             "risk_factors": risk_factors if risk_factors else ["No significant risk factors identified"],
             "factors": risk_factors if risk_factors else ["No significant risk factors identified"]  # Alias
         }
